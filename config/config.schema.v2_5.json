@@ -1,0 +1,824 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EOTS v2.5 Configuration Schema",
+  "description": "Comprehensive schema for validating the EOTS v2.5 application configuration file.",
+  "type": "object",
+  "properties": {
+    "system_settings": {
+      "type": "object",
+      "description": "General system-wide configuration settings.",
+      "properties": {
+        "project_root_override": {
+          "type": ["string", "null"],
+          "description": "Override for the project root directory. Can be null."
+        },
+        "logging_level": {
+          "type": "string",
+          "description": "Sets the minimum level for logging messages.",
+          "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        },
+        "log_to_file": {
+          "type": "boolean",
+          "description": "If true, logs will be written to a file."
+        },
+        "log_file_path": {
+          "type": "string",
+          "description": "The path to the log file."
+        },
+        "max_log_file_size_bytes": {
+          "type": "integer",
+          "description": "Maximum size of the log file before rotation, in bytes.",
+          "minimum": 0
+        },
+        "backup_log_count": {
+          "type": "integer",
+          "description": "Number of backup log files to keep.",
+          "minimum": 0
+        },
+        "metrics_for_dynamic_threshold_distribution_tracking": {
+          "type": "array",
+          "description": "List of metrics to track for dynamic threshold distribution.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "signal_activation": {
+          "type": "boolean",
+          "description": "Whether signal activation is enabled."
+        }
+      },
+      "required": [
+        "logging_level",
+        "log_to_file",
+        "metrics_for_dynamic_threshold_distribution_tracking",
+        "signal_activation"
+      ]
+    },
+    "data_fetcher_settings": {
+      "type": "object",
+      "description": "Configuration for data fetching operations.",
+      "properties": {
+        "api_keys": {
+          "type": "object",
+          "description": "API keys for various data sources.",
+          "properties": {
+          },
+          "required": []
+        },
+        "retry_attempts": {
+          "type": "integer",
+          "description": "Number of retry attempts for failed API calls.",
+          "minimum": 0
+        },
+        "retry_delay": {
+          "type": "number",
+          "description": "Delay between retry attempts in seconds.",
+          "minimum": 0
+        },
+        "timeout": {
+          "type": "number",
+          "description": "Request timeout in seconds.",
+          "minimum": 0
+        }
+      },
+      "required": ["api_keys", "retry_attempts", "retry_delay", "timeout"]
+    },
+    "data_management_settings": {
+      "type": "object",
+      "description": "Settings for data management and storage.",
+      "properties": {
+        "cache_directory": {
+          "type": "string",
+          "description": "Directory for caching data."
+        },
+        "data_store_directory": {
+          "type": "string",
+          "description": "Directory for storing data."
+        },
+        "cache_expiry_hours": {
+          "type": "number",
+          "description": "Cache expiry time in hours.",
+          "minimum": 0
+        }
+      },
+      "required": ["cache_directory", "data_store_directory", "cache_expiry_hours"]
+    },
+    "database_settings": {
+      "type": "object",
+      "description": "Database connection and configuration settings.",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Database host address."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Database port number.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "database": {
+          "type": "string",
+          "description": "Database name."
+        },
+        "username": {
+          "type": "string",
+          "description": "Database username."
+        },
+        "password": {
+          "type": "string",
+          "description": "Database password."
+        },
+        "pool_size": {
+          "type": "integer",
+          "description": "Connection pool size.",
+          "minimum": 1
+        },
+        "max_overflow": {
+          "type": "integer",
+          "description": "Maximum overflow connections.",
+          "minimum": 0
+        }
+      },
+      "required": ["host", "port", "database", "username", "password", "pool_size", "max_overflow"]
+    },
+    "data_processor_settings": {
+      "type": "object",
+      "description": "Settings for data processing operations.",
+      "properties": {
+        "factors": {
+          "type": "object",
+          "description": "Factor settings for data processing.",
+          "properties": {
+            "volume_factor": {
+              "type": "number",
+              "description": "Volume factor for calculations."
+            },
+            "price_factor": {
+              "type": "number",
+              "description": "Price factor for calculations."
+            },
+            "volatility_factor": {
+              "type": "number",
+              "description": "Volatility factor for calculations."
+            }
+          },
+          "required": ["volume_factor", "price_factor", "volatility_factor"]
+        },
+        "coefficients": {
+          "type": "object",
+          "description": "Coefficient settings for data processing.",
+          "properties": {
+            "momentum_coefficient": {
+              "type": "number",
+              "description": "Momentum coefficient for calculations."
+            },
+            "mean_reversion_coefficient": {
+              "type": "number",
+              "description": "Mean reversion coefficient for calculations."
+            }
+          },
+          "required": ["momentum_coefficient", "mean_reversion_coefficient"]
+        },
+        "iv_parameters": {
+          "type": "object",
+          "description": "Implied volatility parameters.",
+          "properties": {
+            "iv_threshold": {
+              "type": "number",
+              "description": "Implied volatility threshold.",
+              "minimum": 0
+            },
+            "iv_lookback_days": {
+              "type": "integer",
+              "description": "Lookback period for IV calculations in days.",
+              "minimum": 1
+            }
+          },
+          "required": ["iv_threshold", "iv_lookback_days"]
+        }
+      },
+      "required": ["factors", "coefficients", "iv_parameters"]
+    },
+    "strategy_settings": {
+      "type": "object",
+      "description": "Settings for trade strategy parameters and optimization.",
+      "properties": {
+        "targets": {
+          "type": "object",
+          "description": "Target parameters for different market conditions.",
+          "properties": {
+            "profit_target_percentage": {
+              "type": "number",
+              "description": "Profit target as a percentage.",
+              "minimum": 0
+            },
+            "stop_loss_percentage": {
+              "type": "number",
+              "description": "Stop loss as a percentage.",
+              "minimum": 0
+            }
+          },
+          "required": ["profit_target_percentage", "stop_loss_percentage"]
+        },
+        "risk_management": {
+          "type": "object",
+          "description": "Risk management parameters.",
+          "properties": {
+            "max_position_size": {
+              "type": "number",
+              "description": "Maximum position size.",
+              "minimum": 0
+            },
+            "max_daily_loss": {
+              "type": "number",
+              "description": "Maximum daily loss threshold.",
+              "minimum": 0
+            }
+          },
+          "required": ["max_position_size", "max_daily_loss"]
+        },
+        "multipliers": {
+          "type": "object",
+          "description": "Strategy multipliers.",
+          "properties": {
+            "bullish_multiplier": {
+              "type": "number",
+              "description": "Multiplier for bullish conditions."
+            },
+            "bearish_multiplier": {
+              "type": "number",
+              "description": "Multiplier for bearish conditions."
+            }
+          },
+          "required": ["bullish_multiplier", "bearish_multiplier"]
+        }
+      },
+      "required": ["targets", "risk_management", "multipliers"]
+    },
+    "adaptive_metric_parameters": {
+      "type": "object",
+      "description": "Parameters for adaptive metric calculations.",
+      "properties": {
+        "lookback_period": {
+          "type": "integer",
+          "description": "Lookback period for adaptive calculations.",
+          "minimum": 1
+        },
+        "adaptation_rate": {
+          "type": "number",
+          "description": "Rate of adaptation for metrics.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "threshold_sensitivity": {
+          "type": "number",
+          "description": "Sensitivity for threshold adjustments.",
+          "minimum": 0
+        }
+      },
+      "required": ["lookback_period", "adaptation_rate", "threshold_sensitivity"]
+    },
+    "enhanced_flow_metric_settings": {
+      "type": "object",
+      "description": "Settings for enhanced flow metric calculations.",
+      "properties": {
+        "vapi_fa_params": {
+          "type": "object",
+          "description": "Parameters for VAPI-FA calculations."
+        },
+        "acceleration_calculation_intervals": {
+          "type": "array",
+          "description": "Time intervals for acceleration calculations.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dwfd_params": {
+          "type": "object",
+          "description": "Parameters for DWFD calculations."
+        },
+        "tw_laf_params": {
+          "type": "object",
+          "description": "Parameters for TW-LAF calculations."
+        },
+        "z_score_window": {
+          "type": "integer",
+          "description": "Window size for Z-score calculations in enhanced flow metrics.",
+          "minimum": 5,
+          "maximum": 200,
+          "default": 20
+        },
+        "time_intervals": {
+          "type": "array",
+          "description": "Time intervals for TW-LAF calculations.",
+          "items": {
+            "type": "integer"
+          },
+          "default": [5, 15, 30]
+        },
+        "liquidity_weight": {
+          "type": "number",
+          "description": "Liquidity weight for TW-LAF calculations.",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.3
+        },
+        "divergence_threshold": {
+          "type": "number",
+          "description": "Threshold for DWFD divergence detection.",
+          "minimum": 0.1,
+          "maximum": 10.0,
+          "default": 1.5
+        },
+        "lookback_periods": {
+          "type": "array",
+          "description": "Lookback periods for VAPI-FA calculations.",
+          "items": {
+            "type": "integer"
+          },
+          "default": [5, 10, 20]
+        }
+      }
+    },
+    "adaptive_trade_idea_framework_settings": {
+      "type": "object",
+      "description": "Settings for the adaptive trade idea framework.",
+      "properties": {
+        "min_conviction_to_initiate_trade": { "type": "number" },
+        "signal_integration_params": { "type": "object" },
+        "regime_context_weight_multipliers": {
+          "type": "object",
+          "description": "Regime-specific signal weight multipliers.",
+          "additionalProperties": { "type": "number" }
+        },
+        "conviction_mapping_params": {
+          "type": "object",
+          "description": "Regime-specific conviction mapping parameters.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "bias_boost": {
+                "type": "object",
+                "additionalProperties": { "type": "number" }
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "strategy_specificity_rules": { "type": "array" },
+        "intelligent_recommendation_management_rules": { "type": "object" },
+        "learning_params": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "ticker_context_analyzer_settings": {
+      "type": "object",
+      "description": "Settings for ticker context analysis.",
+      "properties": {
+        "lookback_days": {
+          "type": "integer",
+          "description": "Lookback period in days.",
+          "minimum": 1
+        },
+        "correlation_window": {
+          "type": "integer",
+          "description": "Correlation window size.",
+          "minimum": 1
+        },
+        "volatility_windows": {
+          "type": "array",
+          "description": "Volatility window sizes.",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "volume_threshold": {
+          "type": "integer",
+          "description": "Volume threshold.",
+          "minimum": 0
+        },
+        "use_yahoo_finance": {
+          "type": "boolean",
+          "description": "Whether to use Yahoo Finance."
+        },
+        "yahoo_finance_rate_limit_seconds": {
+          "type": "number",
+          "description": "Yahoo Finance rate limit in seconds.",
+          "minimum": 0
+        },
+        "SPY": {
+          "type": "object",
+          "description": "SPY specific settings.",
+          "additionalProperties": true
+        },
+        "DEFAULT_TICKER_PROFILE": {
+          "type": "object",
+          "description": "Default ticker profile.",
+          "additionalProperties": true
+        }
+      },
+      "required": ["lookback_days", "correlation_window", "volatility_windows", "volume_threshold", "use_yahoo_finance", "yahoo_finance_rate_limit_seconds", "SPY", "DEFAULT_TICKER_PROFILE"]
+    },
+    "key_level_identifier_settings": {
+      "type": "object",
+      "description": "Settings for key level identification.",
+      "properties": {
+        "lookback_periods": {
+          "type": "integer",
+          "description": "Lookback periods for key level identification.",
+          "minimum": 1
+        },
+        "min_touches": {
+          "type": "integer",
+          "description": "Minimum touches required for a key level.",
+          "minimum": 1
+        },
+        "level_tolerance": {
+          "type": "number",
+          "description": "Tolerance for level identification.",
+          "minimum": 0
+        },
+        "volume_threshold": {
+          "type": "number",
+          "description": "Volume threshold.",
+          "minimum": 0
+        },
+        "oi_threshold": {
+          "type": "integer",
+          "description": "Open interest threshold.",
+          "minimum": 0
+        },
+        "gamma_threshold": {
+          "type": "number",
+          "description": "Gamma threshold.",
+          "minimum": 0
+        },
+        "nvp_support_quantile": {
+          "type": "number",
+          "description": "Net value position support quantile.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "nvp_resistance_quantile": {
+          "type": "number",
+          "description": "Net value position resistance quantile.",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": ["lookback_periods", "min_touches", "level_tolerance", "volume_threshold", "oi_threshold", "gamma_threshold", "nvp_support_quantile", "nvp_resistance_quantile"]
+    },
+    "heatmap_generation_settings": {
+      "type": "object",
+      "description": "Settings for heatmap generation.",
+      "properties": {
+        "ugch_params": {
+          "type": "object",
+          "description": "Parameters for UGCH (Unified Gamma-Centric Heatmap) calculations."
+        },
+        "flow_normalization_window": {
+          "type": "integer",
+          "description": "Window size for flow normalization in enhanced heatmap calculations.",
+          "minimum": 10,
+          "maximum": 500,
+          "default": 100
+        },
+        "resolution": {
+          "type": "string",
+          "description": "Resolution for heatmap generation.",
+          "enum": ["low", "medium", "high"]
+        },
+        "color_scheme": {
+          "type": "string",
+          "description": "Color scheme for heatmaps.",
+          "enum": ["viridis", "plasma", "inferno", "magma", "coolwarm"]
+        },
+        "update_frequency_minutes": {
+          "type": "integer",
+          "description": "Update frequency for heatmaps in minutes.",
+          "minimum": 1
+        }
+      }
+    },
+    "market_regime_engine_settings": {
+      "type": "object",
+      "description": "Settings for market regime detection engine.",
+      "properties": {
+        "regime_detection_method": {
+          "type": "string",
+          "description": "Method for regime detection.",
+          "enum": ["hmm", "threshold", "ml", "hybrid"]
+        },
+        "regime_rules": {
+          "type": "object",
+          "description": "Rules for different market regimes.",
+          "properties": {
+            "bull_market": {
+              "type": "object",
+              "description": "Rules for bull market regime.",
+              "properties": {
+                "trend_threshold": {
+                  "type": "number",
+                  "description": "Trend threshold for bull market."
+                },
+                "volatility_threshold": {
+                  "type": "number",
+                  "description": "Volatility threshold for bull market."
+                }
+              },
+              "required": ["trend_threshold", "volatility_threshold"]
+            },
+            "bear_market": {
+              "type": "object",
+              "description": "Rules for bear market regime.",
+              "properties": {
+                "trend_threshold": {
+                  "type": "number",
+                  "description": "Trend threshold for bear market."
+                },
+                "volatility_threshold": {
+                  "type": "number",
+                  "description": "Volatility threshold for bear market."
+                }
+              },
+              "required": ["trend_threshold", "volatility_threshold"]
+            },
+            "sideways_market": {
+              "type": "object",
+              "description": "Rules for sideways market regime.",
+              "properties": {
+                "trend_threshold": {
+                  "type": "number",
+                  "description": "Trend threshold for sideways market."
+                },
+                "volatility_threshold": {
+                  "type": "number",
+                  "description": "Volatility threshold for sideways market."
+                }
+              },
+              "required": ["trend_threshold", "volatility_threshold"]
+            },
+            "high_volatility": {
+              "type": "object",
+              "description": "Rules for high volatility regime.",
+              "properties": {
+                "volatility_threshold": {
+                  "type": "number",
+                  "description": "Volatility threshold for high volatility regime."
+                },
+                "duration_threshold_minutes": {
+                  "type": "integer",
+                  "description": "Duration threshold in minutes.",
+                  "minimum": 1
+                }
+              },
+              "required": ["volatility_threshold", "duration_threshold_minutes"]
+            }
+          },
+          "required": ["bull_market", "bear_market", "sideways_market", "high_volatility"]
+        },
+        "regime_transition_smoothing": {
+          "type": "number",
+          "description": "Smoothing factor for regime transitions.",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": ["regime_detection_method", "regime_rules", "regime_transition_smoothing"]
+    },
+    "visualization_settings": {
+      "type": "object",
+      "description": "Visualization and dashboard settings.",
+      "properties": {
+        "dashboard_refresh_interval_seconds": {
+          "type": "integer",
+          "description": "Dashboard refresh interval in seconds.",
+          "minimum": 1
+        },
+        "max_table_rows_signals_insights": {
+          "type": "integer",
+          "description": "Maximum table rows for signals insights.",
+          "minimum": 1
+        },
+        "dashboard": {
+          "type": "object",
+          "description": "Dashboard configuration.",
+          "properties": {
+            "host": {
+              "type": "string",
+              "description": "Dashboard host address."
+            },
+            "port": {
+              "type": "integer",
+              "description": "Dashboard port number.",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "debug": {
+              "type": "boolean",
+              "description": "Whether dashboard runs in debug mode."
+            },
+            "auto_refresh_seconds": {
+              "type": "integer",
+              "description": "Auto refresh interval in seconds.",
+              "minimum": 1
+            },
+            "timestamp_format": {
+              "type": "string",
+              "description": "Timestamp format string."
+            },
+            "defaults": {
+              "type": "object",
+              "description": "Default dashboard settings.",
+              "properties": {
+                "symbol": {
+                  "type": "string",
+                  "description": "Default symbol to load.",
+                  "pattern": "^[A-Z]{1,10}$"
+                },
+                "refresh_interval_seconds": {
+                  "type": "integer",
+                  "description": "Default refresh interval in seconds.",
+                  "minimum": 1
+                },
+                "dte_min": {
+                  "type": "integer",
+                  "description": "Minimum days to expiration filter.",
+                  "minimum": 0,
+                  "maximum": 365
+                },
+                "dte_max": {
+                  "type": "integer",
+                  "description": "Maximum days to expiration filter.",
+                  "minimum": 0,
+                  "maximum": 365
+                },
+                "price_range_percent": {
+                  "type": "integer",
+                  "description": "Price range percentage for strike filtering.",
+                  "minimum": 1,
+                  "maximum": 100
+                }
+              },
+              "required": ["symbol", "refresh_interval_seconds", "dte_min", "dte_max", "price_range_percent"]
+            },
+            "modes_detail_config": {
+              "type": "object",
+              "description": "Configuration for different dashboard modes.",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Display label for the mode."
+                  },
+                  "module_name": {
+                    "type": "string",
+                    "description": "Python module name for the mode."
+                  },
+                  "charts": {
+                    "type": "array",
+                    "description": "List of charts to display in this mode.",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["label", "module_name", "charts"]
+              }
+            },
+            "main_dashboard_settings": {
+              "type": "object",
+              "description": "Main dashboard specific settings.",
+              "additionalProperties": true
+            }
+          },
+          "required": ["host", "port", "debug", "auto_refresh_seconds", "timestamp_format", "defaults", "modes_detail_config", "main_dashboard_settings"]
+        }
+      },
+      "required": ["dashboard_refresh_interval_seconds", "max_table_rows_signals_insights", "dashboard"]
+    },
+    "symbol_specific_overrides": {
+      "type": "object",
+      "description": "Symbol-specific configuration overrides.",
+      "patternProperties": {
+        "^[A-Z]{1,5}$": {
+          "type": "object",
+          "description": "Override settings for a specific symbol.",
+          "properties": {
+            "strategy_multiplier": {
+              "type": "number",
+              "description": "Strategy multiplier override for this symbol."
+            },
+            "risk_adjustment": {
+              "type": "number",
+              "description": "Risk adjustment factor for this symbol."
+            },
+            "custom_thresholds": {
+              "type": "object",
+              "description": "Custom thresholds for this symbol.",
+              "additionalProperties": {
+                "type": "number"
+              }
+            }
+            },
+  "additionalProperties": false
+},
+      "additionalProperties": false
+    },
+    "performance_tracker_settings_v2_5": {
+      "type": "object",
+      "description": "Settings for performance tracking.",
+      "properties": {
+        "performance_data_directory": {
+          "type": "string",
+          "description": "Directory for performance data storage."
+        },
+        "historical_window_days": {
+          "type": "integer",
+          "description": "Historical window in days.",
+          "minimum": 1
+        },
+        "weight_smoothing_factor": {
+          "type": "number",
+          "description": "Weight smoothing factor.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "min_sample_size": {
+          "type": "integer",
+          "description": "Minimum sample size.",
+          "minimum": 1
+        },
+        "confidence_threshold": {
+          "type": "number",
+          "description": "Confidence threshold.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "update_interval_seconds": {
+          "type": "integer",
+          "description": "Update interval in seconds.",
+          "minimum": 1
+        }
+      },
+      "required": ["performance_data_directory", "historical_window_days", "weight_smoothing_factor", "min_sample_size", "confidence_threshold", "update_interval_seconds"]
+    },
+    "time_of_day_definitions": {
+      "type": "object",
+      "description": "Time-based definitions for system operations.",
+      "properties": {
+        "market_open": {
+          "type": "string",
+          "description": "Market opening time in HH:MM:SS format.",
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+        },
+        "market_close": {
+          "type": "string",
+          "description": "Market closing time in HH:MM:SS format.",
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+        },
+        "pre_market_start": {
+          "type": "string",
+          "description": "Pre-market start time in HH:MM:SS format.",
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+        },
+        "after_hours_end": {
+          "type": "string",
+          "description": "After-hours end time in HH:MM:SS format.",
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+        },
+        "eod_pressure_calc_time": {
+          "type": "string",
+          "description": "Time for end-of-day pressure calculations in HH:MM:SS format.",
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+        }
+      },
+      "required": ["market_open", "market_close", "pre_market_start", "after_hours_end", "eod_pressure_calc_time"]
+    }
+  },
+  "required": [
+    "system_settings",
+    "data_fetcher_settings",
+    "data_management_settings",
+    "database_settings",
+    "data_processor_settings",
+    "strategy_settings",
+    "adaptive_metric_parameters",
+    "enhanced_flow_metric_settings",
+    "adaptive_trade_idea_framework_settings",
+    "ticker_context_analyzer_settings",
+    "key_level_identifier_settings",
+    "heatmap_generation_settings",
+    "market_regime_engine_settings",
+    "visualization_settings",
+    "performance_tracker_settings_v2_5",
+    "time_of_day_definitions"
+  ],
+  "additionalProperties": false
+}
+}
