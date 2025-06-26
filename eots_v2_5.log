@@ -1,0 +1,85 @@
+2025-06-26 00:59:02 - EOTS                      - INFO     - Attempting to load .env file from: C:\Users\dangt\OneDrive\Desktop\elite_options_system_v2_5(julkess)\.env
+2025-06-26 00:59:02 - EOTS                      - INFO     - Successfully loaded new environment variables from .env file
+2025-06-26 00:59:02 - EOTS                      - INFO     - ✅ All required environment variables are present
+2025-06-26 00:59:02 - elite_options_system_v2_5 - INFO     - EOTS v2.5 root package initialized
+2025-06-26 00:59:02 - EOTS                      - INFO     - EOTS v2.5 root package initialized
+2025-06-26 00:59:02 - EOTS                      - INFO     - Successfully imported root package
+2025-06-26 00:59:02 - EOTS                      - INFO     - DatabaseManagerV2_5 successfully connected to Supabase/Postgres backend.
+2025-06-26 00:59:02 - utils.config_manager_v2_5 - INFO     - Loading configuration from: C:\Users\dangt\OneDrive\Desktop\elite_options_system_v2_5(julkess)\config\config_v2_5.json
+2025-06-26 00:59:02 - utils.config_manager_v2_5 - INFO     - JSON schema validation successful.
+2025-06-26 00:59:02 - utils.config_manager_v2_5 - INFO     - Pydantic model parsing successful. Configuration is now loaded and type-safe.
+2025-06-26 00:59:02 - EOTS                      - INFO     - ConfigManagerV2_5 successfully initialized.
+2025-06-26 00:59:02 - EOTS                      - INFO     - 🚀 Initializing Enhanced Cache Manager (High-Performance Local Caching)...
+2025-06-26 00:59:02 - EOTS                      - ERROR    - ❌ Failed to initialize Enhanced Cache Manager: Cache root path not configured
+2025-06-26 00:59:02 - EOTS                      - WARNING  - ⚠️ Continuing without local caching
+2025-06-26 00:59:02 - EOTS                      - INFO     - 🏛️ Initializing AI Intelligence Database (Agent Headquarters)...
+2025-06-26 00:59:02 - dashboard_application.modes.time_decay_mode_display_v2_5 - INFO     - 🚀 PYDANTIC-FIRST: Time Decay Mode Display v2.5 module loaded successfully
+2025-06-26 00:59:02 - dashboard_application.modes.time_decay_mode_display_v2_5 - INFO     - 🚀 SCHEMA COMPLIANCE: FilteredDataBundleV2_5.filtered_strike_data field mapping validated
+2025-06-26 00:59:02 - dashboard_application.modes.time_decay_mode_display_v2_5 - INFO     - 🚀 PARAMETER COMPLIANCE: ControlPanelParametersV2_5.last_compliance_check requirement enforced
+2025-06-26 00:59:02 - dashboard_application.modes.time_decay_mode_display_v2_5 - INFO     - 🚀 FAIL-FAST ARCHITECTURE: No dummy fallback data - real validation or failure
+2025-06-26 00:59:03 - data_management.alpha_vantage_fetcher_v2_5 - INFO     - 🧠 Alpha Vantage Data Fetcher initialized with Alpha Intelligence™
+2025-06-26 00:59:03 - dashboard_application.modes.ai_dashboard.error_handler_v2_5 - INFO     - 🛡️ AI Error Handler v2.5 initialized with Pydantic-first architecture
+2025-06-26 00:59:03 - database_management.ai_intelligence_database_manager.AIIntelligenceDatabaseManager - INFO     - 🏛️ AI Intelligence Database connection established
+2025-06-26 00:59:03 - database_management.ai_intelligence_database_manager.AIIntelligenceDatabaseManager - INFO     - 🏗️ AI Intelligence Database schema not found - creating tables...
+2025-06-26 00:59:03 - database_management.ai_intelligence_database_manager.AIIntelligenceDatabaseManager - ERROR    - Failed to create database schema: relation "orchestrator_decisions" already exists
+2025-06-26 00:59:03 - database_management.ai_intelligence_database_manager.AIIntelligenceDatabaseManager - ERROR    - AI Intelligence Database health check failed: relation "orchestrator_decisions" already exists
+2025-06-26 00:59:03 - database_management.ai_intelligence_integration.AIIntelligenceDatabaseIntegration - ERROR    - Failed to register agent MarketAnalystAgent: relation "ai_agents" does not exist
+2025-06-26 00:59:04 - database_management.ai_intelligence_integration.AIIntelligenceDatabaseIntegration - ERROR    - Failed to register agent RegimeAnalystAgent: relation "ai_agents" does not exist
+2025-06-26 00:59:04 - database_management.ai_intelligence_integration.AIIntelligenceDatabaseIntegration - ERROR    - Failed to register agent ConfidenceCalculatorAgent: relation "ai_agents" does not exist
+2025-06-26 00:59:04 - database_management.ai_intelligence_integration.AIIntelligenceDatabaseIntegration - INFO     - 🏛️ AI Intelligence Database Integration initialized successfully
+2025-06-26 00:59:04 - EOTS                      - INFO     - ✅ AI Intelligence Database initialized successfully!
+2025-06-26 00:59:04 - EOTS                      - INFO     - 🧠 AI Agent headquarters is now active:
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Agent registration: Automatic
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Learning persistence: Enabled
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Memory storage: Active
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Performance tracking: Running
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Adaptive thresholds: Learning
+2025-06-26 00:59:04 - EOTS                      - INFO     - 🧠 Initializing Market Intelligence Engine...
+2025-06-26 00:59:04 - core_analytics_engine.news_intelligence_engine_v2_5 - INFO     - 🧠 News Intelligence Engine v2.5 'Diabolical Intelligence' initialized
+2025-06-26 00:59:04 - core_analytics_engine.market_intelligence_engine_v2_5 - INFO     - Market Intelligence Engine v2.5 initialized with Pydantic validation
+2025-06-26 00:59:04 - EOTS                      - INFO     - ✅ Market Intelligence Engine initialized successfully!
+2025-06-26 00:59:04 - EOTS                      - INFO     - 🔄 Intelligence capabilities are now active:
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Signal generation
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Recommendation logic
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Trade parameter optimization
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Key level identification
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Ticker context analysis
+2025-06-26 00:59:04 - EOTS                      - INFO     -    - Real-time parameter optimization
+2025-06-26 00:59:04 - EOTS                      - INFO     - 🚀 Started initial market analysis in background thread
+2025-06-26 00:59:04 - EOTS                      - INFO     - 🧠 Initializing Adaptive Learning System (Pydantic AI)...
+2025-06-26 00:59:04 - EOTS                      - INFO     - 🧠 Initializing core AI components...
+2025-06-26 00:59:04 - EOTS                      - INFO     - 🚀 Starting initial market analysis...
+2025-06-26 00:59:04 - EOTS                      - INFO     - 📊 Fetching market data...
+2025-06-26 00:59:04 - EOTS                      - INFO     - 📡 Fetching data bundle for SPY (next 30 days)
+2025-06-26 00:59:04 - EOTS                      - INFO     - 📡 Fetching raw data for SPY (next 30 days)
+2025-06-26 00:59:04 - EOTS                      - ERROR    - ❌ Error fetching data for SPY: 'ConfigManagerV2_5' object has no attribute 'get'
+Traceback (most recent call last):
+  File "C:\Users\dangt\OneDrive\Desktop\elite_options_system_v2_5(julkess)\run_system_dashboard_v2_5.py", line 658, in fetch_raw_data
+    if not config_manager.get('TRADIER_ACCESS_TOKEN'):
+           ^^^^^^^^^^^^^^^^^^
+AttributeError: 'ConfigManagerV2_5' object has no attribute 'get'
+2025-06-26 00:59:04 - EOTS                      - ERROR    - ❌ Failed to fetch raw data for SPY
+2025-06-26 00:59:04 - EOTS                      - ERROR    - ❌ Failed to get data bundle for initial analysis
+2025-06-26 00:59:04 - EOTS                      - INFO     - ⏱️  Analysis completed in 0.01 seconds
+2025-06-26 00:59:04 - EOTS                      - WARNING  - Analysis completed with no results
+2025-06-26 00:59:04 - data_management.historical_data_manager_v2_5.HistoricalDataManagerV2_5 - INFO     - HistoricalDataManagerV2_5 initialized with live database access.
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - WARNING  - Metrics calculator not set for dynamic threshold calculation
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - WARNING  - Metrics calculator not set for dynamic threshold calculation
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - WARNING  - Metrics calculator not set for dynamic threshold calculation
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - WARNING  - Metrics calculator not set for dynamic threshold calculation
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - WARNING  - Metrics calculator not set for dynamic threshold calculation
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - WARNING  - Metrics calculator not set for dynamic threshold calculation
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - WARNING  - Metrics calculator not set for dynamic threshold calculation
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - WARNING  - Metrics calculator not set for dynamic threshold calculation
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - WARNING  - Metrics calculator not set for dynamic threshold calculation
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - INFO     - Successfully parsed 17 rules across 11 regimes.
+2025-06-26 00:59:04 - core_analytics_engine.market_regime_engine_v2_5 - INFO     - MarketRegimeEngineV2_5 initialized with Pydantic validation.
+2025-06-26 00:59:04 - core_analytics_engine.news_intelligence_engine_v2_5 - INFO     - 🧠 News Intelligence Engine v2.5 'Diabolical Intelligence' initialized
+2025-06-26 00:59:04 - core_analytics_engine.market_intelligence_engine_v2_5 - INFO     - Market Intelligence Engine v2.5 initialized with Pydantic validation
+2025-06-26 00:59:05 - core_analytics_engine.news_intelligence_engine_v2_5 - INFO     - 🧠 News Intelligence Engine v2.5 'Diabolical Intelligence' initialized
+2025-06-26 00:59:05 - core_analytics_engine.market_intelligence_engine_v2_5 - INFO     - Market Intelligence Engine v2.5 initialized with Pydantic validation
+2025-06-26 00:59:05 - core_analytics_engine.atif_engine_v2_5 - INFO     - 🧠 ATIF Engine v2.5 initialized
+2025-06-26 00:59:05 - core_analytics_engine.news_intelligence_engine_v2_5 - INFO     - 🧠 News Intelligence Engine v2.5 'Diabolical Intelligence' initialized
+2025-06-26 00:59:05 - data_management.performance_tracker_v2_5.PerformanceTrackerV2_5 - INFO     - PerformanceTrackerV2_5 initialized. Data will be stored in: C:\Users\dangt\OneDrive\Desktop\elite_options_system_v2_5(julkess)\data_cache_v2_5\performance_data_store
+2025-06-26 00:59:05 - core_analytics_engine.its_orchestrator_v2_5 - INFO     - 🎯 ITS Orchestrator initialized successfully with all components
+2025-06-26 00:59:05 - EOTS                      - INFO     - ✅ Core AI components initialized successfully
