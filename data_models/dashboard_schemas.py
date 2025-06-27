@@ -19,8 +19,8 @@ class ChartType(str, Enum):
     LINE = "line"; BAR = "bar"; SCATTER = "scatter"; HEATMAP = "heatmap"; GAUGE = "gauge"
     CANDLESTICK = "candlestick"; HISTOGRAM = "histogram"; PIE = "pie"; TABLE = "table"
 
-class DashboardModeSettings(BaseModel):
-    """Configuration for a specific dashboard mode's display settings."""
+class DashboardModeUIDetail(BaseModel):
+    """Detailed configuration for a specific dashboard mode's display settings, including UI elements."""
     module_name: str = Field(..., description="Python module containing the dashboard mode implementation.")
     charts: List[str] = Field(default_factory=list, description="List of chart/component identifiers to display in this mode.")
     label: str = Field("", description="User-friendly display name for this mode.")
@@ -73,7 +73,7 @@ class ControlPanelParametersV2_5(BaseModel):
 
 class DashboardConfigV2_5(BaseModel):
     """Main configuration for the EOTS dashboard, defining modes, charts, and component behavior."""
-    available_modes: Dict[DashboardModeType, DashboardModeSettings] = Field(default_factory=dict, description="Available dashboard modes and their configurations.")
+    available_modes: Dict[DashboardModeType, DashboardModeUIDetail] = Field(default_factory=dict, description="Available dashboard modes and their configurations.")
     default_mode: DashboardModeType = Field(DashboardModeType.STANDARD, description="Default dashboard mode loaded on startup.")
     chart_configs: Dict[str, ChartLayoutConfigV2_5] = Field(default_factory=dict, description="Configuration for individual charts by their unique identifier.")
     control_panel: ControlPanelParametersV2_5 = Field(default_factory=ControlPanelParametersV2_5, description="Default parameters for the control panel.")

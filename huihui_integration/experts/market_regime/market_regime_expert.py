@@ -30,14 +30,16 @@ from pydantic import BaseModel, Field, validator
 from data_models.eots_schemas_v2_5 import (
     ProcessedDataBundleV2_5,
     ProcessedUnderlyingAggregatesV2_5,
-    ProcessedContractMetricsV2_5,
-    ProcessedStrikeLevelMetricsV2_5,
-    DynamicThresholdsV2_5,
-    TickerContextDictV2_5,
+    # ProcessedContractMetricsV2_5, # Not directly used by this expert's main logic
+    # ProcessedStrikeLevelMetricsV2_5, # Not directly used
+    # DynamicThresholdsV2_5, # Not directly used
+    # TickerContextDictV2_5, # Not directly used
+    HuiHuiAnalysisRequestV2_5, # Added for new analyze method
     HuiHuiAnalysisResponseV2_5,
     HuiHuiExpertType,
-    FinalAnalysisBundleV2_5,
-    HuiHuiExpertConfigV2_5
+    # FinalAnalysisBundleV2_5, # Not directly used in top-level analyze signature
+    HuiHuiExpertConfigV2_5, # Base config type
+    MarketRegimeExpertConfig # Specific config type for this expert (defined below)
 )
 
 # EOTS utilities
@@ -199,13 +201,22 @@ class LegendaryRegimeConfig(BaseModel):
 class UltimateMarketRegimeExpert(BaseHuiHuiExpert):
     """🏛️ LEGENDARY MARKET REGIME EXPERT - VRI 3.0 Enhanced"""
     
-    def __init__(self, expert_config: MarketRegimeExpertConfig, config_manager: ConfigManagerV2_5, historical_data_manager):
-        super().__init__(expert_config)
-        self.config = expert_config
-        self.metrics_calculator = MetricsCalculatorV2_5(
+    def __init__(self, expert_config: MarketRegimeExpertConfig,
+                 config_manager: ConfigManagerV2_5,
+                 historical_data_manager, # Consider type hinting if available
+                 db_manager=None): # Add db_manager
+        super().__init__(expert_config, db_manager) # Pass db_manager to super
+        # self.config is already set by super() to expert_config (which is MarketRegimeExpertConfig)
+        # So, self.config.vri_3_enabled etc. can be used directly.
+
+        self.metrics_calculator = MetricsCalculatorV2_5( # This is fine
             config_manager=config_manager,
             historical_data_manager=historical_data_manager
         )
+        # Ensure initialization of MetricsCalculator if it has an init method
+        if hasattr(self.metrics_calculator, 'initialize') and callable(getattr(self.metrics_calculator, 'initialize')):
+            self.metrics_calculator.initialize()
+
 
     def _get_trend_direction(self, data: ProcessedUnderlyingAggregatesV2_5) -> str:
         """Determine the trend direction based on price data"""
@@ -1063,6 +1074,222 @@ class UltimateMarketRegimeExpert(BaseHuiHuiExpert):
         except Exception as e:
             logger.error(f"Failed to calculate macro indicators: {e}")
             return {indicator: 0.0 for indicator in self.config.macro_indicators}
+
+
+    # --- Implementation of BaseHuiHuiExpert Abstract Methods ---
+
+    def get_specialization_keywords(self) -> List[str]:
+        """Get keywords that define this expert's specialization."""
+        return [
+            'market_regime', 'regime', 'volatility', 'vri', 'vri_3.0',
+            'trend', 'cross_asset', 'macro', 'market_condition', 'regime_transition'
+        ]
+
+    def validate_input_data(self, data_bundle: ProcessedDataBundleV2_5) -> bool:
+        """Validate that input data contains required fields for this expert."""
+        if not data_bundle or not data_bundle.underlying_data_enriched:
+            self.logger.warning("Input validation failed: Missing underlying_data_enriched in data_bundle.")
+            return False
+
+        # Example check: VRI 3.0 components rely on several underlying metrics.
+        # This expert's internal _calculate_vri_components uses metrics_calculator,
+        # which itself should handle missing data for its constituent parts.
+        # So, a basic check for underlying_data_enriched might be sufficient here.
+        if not hasattr(data_bundle.underlying_data_enriched, 'price'):
+            self.logger.warning("Input validation: Price data missing from underlying_data_enriched.")
+            # Depending on strictness, could return False or allow graceful degradation.
+            # For now, let's assume metrics_calculator handles missing underlying fields.
+
+        return True
+
+    async def analyze(self, request: HuiHuiAnalysisRequestV2_5) -> HuiHuiAnalysisResponseV2_5:
+        """
+        Perform comprehensive market regime analysis.
+        This is the main entry point called by the coordinator.
+        """
+        if not request.bundle_data:
+            self.logger.error("No data bundle provided in HuiHuiAnalysisRequestV2_5 for MarketRegimeExpert.")
+            return HuiHuiAnalysisResponseV2_5(
+                expert_used=self.config.expert_id, # from HuiHuiExpertConfigV2_5
+                analysis_content="Error: No data bundle provided for regime analysis.",
+                confidence_score=0.0,
+                processing_time=0.0,
+                insights=["Critical error: Missing data bundle for regime analysis."],
+                errors=["Missing ProcessedDataBundleV2_5 in request for MarketRegimeExpert."]
+            )
+
+        if not self.validate_input_data(request.bundle_data):
+            self.logger.error("Input data validation failed for MarketRegimeExpert.")
+            return HuiHuiAnalysisResponseV2_5(
+                expert_used=self.config.expert_id,
+                analysis_content="Error: Input data validation failed for regime analysis.",
+                confidence_score=0.0,
+                processing_time=0.0,
+                insights=["Critical error: Invalid input data for regime analysis."],
+                errors=["Input data validation failed for MarketRegimeExpert."]
+            )
+
+        # Call the original synchronous analysis logic.
+        # If _perform_regime_analysis_logic becomes truly async (e.g., awaits IO),
+        # then this await is correct. If it's CPU-bound, can run in executor or directly.
+        # For now, assuming it's okay to call directly as its sub-methods are synchronous.
+        # To be fully async-compliant if its sub-methods were blocking:
+        # legendary_result = await asyncio.to_thread(self._perform_regime_analysis_logic, request.bundle_data)
+        legendary_result: LegendaryRegimeResult = self._perform_regime_analysis_logic(request.bundle_data)
+
+        # Package LegendaryRegimeResult into HuiHuiAnalysisResponseV2_5
+        analysis_content_str = (
+            f"**Market Regime Analysis for {legendary_result.ticker} ({legendary_result.timestamp.strftime('%Y-%m-%d %H:%M:%S %Z')})**\n\n"
+            f"**Current Regime:** {legendary_result.regime_classification.regime_name} (Prob: {legendary_result.regime_classification.probability:.2%}, Conf: {legendary_result.regime_classification.confidence:.2%})\n"
+            f"   - Description: {legendary_result.regime_classification.regime_description}\n"
+            f"   - Volatility: {legendary_result.regime_classification.volatility_level}, Trend: {legendary_result.regime_classification.trend_direction}, Flow: {legendary_result.regime_classification.flow_pattern}\n\n"
+            f"**VRI 3.0 Analysis (Composite: {legendary_result.vri_3_analysis.composite_score:.2f}):**\n"
+            f"   - Volatility Comp: {legendary_result.vri_3_analysis.volatility_regime:.2f}, Flow Comp: {legendary_result.vri_3_analysis.flow_intensity:.2f}\n"
+            f"   - Stability: {legendary_result.vri_3_analysis.regime_stability:.2f}, Transition Momentum: {legendary_result.vri_3_analysis.transition_momentum:.2f}\n\n"
+            f"**Regime Transition Prediction (Confidence: {legendary_result.transition_prediction.confidence_level:.2%}):**\n"
+            f"   - Predicted Next: {legendary_result.transition_prediction.predicted_regime} (Prob: {legendary_result.transition_prediction.transition_probability:.2%})\n"
+            f"   - Expected Timeframe: {legendary_result.transition_prediction.expected_timeframe} days\n\n"
+            f"**Overall Strength:** {legendary_result.regime_strength:.2f}, Persistence: {legendary_result.regime_persistence:.2f}\n"
+            f"**Regime Risk Score:** {legendary_result.regime_risk_score:.2f}, Tail Risk Prob: {legendary_result.tail_risk_probability:.2%}"
+        )
+
+        insights = [
+            f"Current Regime: {legendary_result.regime_classification.regime_name} (Confidence: {legendary_result.regime_classification.confidence:.0%})",
+            f"VRI 3.0 Composite: {legendary_result.vri_3_analysis.composite_score:.2f}",
+            f"Predicted Next Regime: {legendary_result.transition_prediction.predicted_regime} (Prob: {legendary_result.transition_prediction.transition_probability:.0%})"
+        ]
+
+        response = HuiHuiAnalysisResponseV2_5(
+            expert_used=HuiHuiExpertType.MARKET_REGIME, # Use enum member
+            analysis_content=analysis_content_str,
+            confidence_score=legendary_result.confidence_score,
+            processing_time=legendary_result.processing_time_ms / 1000.0, # convert to seconds
+            insights=insights,
+            # eots_predictions and recommendations can be added if this expert generates them
+        )
+
+        self.last_analysis_time = datetime.utcnow() # From BaseHuiHuiExpert
+        # Record usage using the base class method
+        self.record_usage(request, response, legendary_result.processing_time_ms)
+
+        return response
+
+    # Renamed original analyze method to be the core synchronous logic
+    def _perform_regime_analysis_logic(self, data: ProcessedDataBundleV2_5) -> LegendaryRegimeResult:
+        """Perform comprehensive market regime analysis."""
+        try:
+            start_time = time.time()
+
+            # Calculate VRI 3.0 components
+            vri_components = self._calculate_vri_components(data.underlying_data_enriched)
+
+            # Classify current regime
+            regime_classification = self._classify_regime(data, vri_components)
+
+            # Predict regime transition
+            transition_prediction = self._predict_regime_transition(regime_classification, vri_components)
+
+            # Calculate cross-asset correlations and analysis
+            cross_asset_analysis = self._analyze_cross_asset_correlations(data)
+
+            # Calculate volatility forecast
+            volatility_forecast = {
+                "1d": self.metrics_calculator.calculate_volatility_regime(data.underlying_data_enriched),
+                "5d": self.metrics_calculator.calculate_regime_stability(data.underlying_data_enriched),
+                "20d": self.metrics_calculator.calculate_flow_intensity(data.underlying_data_enriched)
+            }
+
+            # Calculate regime strength and persistence
+            regime_strength = vri_components.composite_score
+            regime_persistence = vri_components.regime_stability
+
+            # Calculate risk scores
+            regime_risk_score = 1.0 - vri_components.confidence_level
+            tail_risk_probability = max(0.0, min(1.0, 1.0 - vri_components.regime_stability))
+
+            # Create result
+            result = LegendaryRegimeResult(
+                analysis_id=str(uuid.uuid4()),
+                ticker=data.underlying_data_enriched.symbol,
+                timestamp=datetime.now(), # Use current time for result timestamp
+                processing_time_ms=float((time.time() - start_time) * 1000),
+                vri_3_analysis=vri_components,
+                regime_classification=regime_classification,
+                transition_prediction=transition_prediction,
+                cross_asset_analysis=cross_asset_analysis,
+                regime_strength=regime_strength,
+                regime_persistence=regime_persistence,
+                volatility_forecast=volatility_forecast,
+                regime_risk_score=regime_risk_score,
+                tail_risk_probability=tail_risk_probability,
+                black_swan_indicators=[],
+                prediction_accuracy=None,
+                confidence_score=vri_components.confidence_level,
+                data_quality_score=1.0 # Placeholder, should be calculated
+            )
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Market regime analysis logic failed: {e}", exc_info=True)
+            # Ensure a LegendaryRegimeResult is always returned, even on error
+            current_symbol = "UNKNOWN"
+            if data and data.underlying_data_enriched and data.underlying_data_enriched.symbol:
+                current_symbol = data.underlying_data_enriched.symbol
+
+            return LegendaryRegimeResult(
+                analysis_id=str(uuid.uuid4()),
+                ticker=current_symbol,
+                timestamp=datetime.now(),
+                processing_time_ms=0.0,
+                vri_3_analysis=VRI3Components(
+                    composite_score=0.0,
+                    volatility_regime=0.0,
+                    flow_intensity=0.0,
+                    regime_stability=0.0,
+                    transition_momentum=0.0,
+                    confidence_level=0.0
+                ),
+                regime_classification=RegimeClassification(
+                    regime_id="REGIME_UNDEFINED_ERROR",
+                    regime_name="undefined_error",
+                    regime_description=f"Analysis failed: {str(e)}",
+                    probability=0.0,
+                    confidence=0.0,
+                    volatility_level="Unknown",
+                    trend_direction="Unknown",
+                    flow_pattern="Unknown",
+                    risk_appetite="Unknown"
+                ),
+                transition_prediction=RegimeTransitionPrediction(
+                    current_regime="undefined_error",
+                    predicted_regime="undefined_error",
+                    transition_probability=0.0,
+                    expected_timeframe=0,
+                    confidence_level=0.0,
+                    transition_triggers=[],
+                    risk_factors=[]
+                ),
+                cross_asset_analysis=CrossAssetAnalysis(
+                    asset_correlations={},
+                    regime_consistency=0.0,
+                    divergence_signals=[],
+                    confirmation_signals=[],
+                    equity_regime=EquityRegime.UNDEFINED,
+                    bond_regime=BondRegime.UNDEFINED,
+                    commodity_regime=CommodityRegime.UNDEFINED,
+                    currency_regime=CurrencyRegime.UNDEFINED
+                ),
+                regime_strength=0.0,
+                regime_persistence=0.0,
+                volatility_forecast={"1d": 0.0, "5d": 0.0, "20d": 0.0},
+                regime_risk_score=1.0,
+                tail_risk_probability=1.0,
+                black_swan_indicators=["Analysis Failed Due to Error"],
+                prediction_accuracy=None,
+                confidence_score=0.0,
+                data_quality_score=0.0
+            )
 
 # Maintain backward compatibility
 MarketRegimeExpert = UltimateMarketRegimeExpert

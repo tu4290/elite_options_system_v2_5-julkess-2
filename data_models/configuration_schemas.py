@@ -317,11 +317,17 @@ class PerformanceTrackerSettingsV2_5(BaseModel):
     update_interval_seconds: Optional[int] = Field(3600, description="Interval for performance data updates.")
     class Config: extra = 'forbid'
 
+class DTDPIParamsConfig(BaseModel):
+    """Specific parameters for D-TDPI calculation."""
+    tdpi_beta_flow_alignment_coeff: float = Field(default=0.4, ge=0, le=2.0, description="Coefficient for flow alignment in D-TDPI. Default 0.4")
+    # Add other D-TDPI specific parameters here if any in the future
+    class Config: extra = 'forbid'
+
 class AdaptiveMetricParameters(BaseModel): # Top-level container for all adaptive metric specific settings in config
     """Container for settings related to all Tier 2 Adaptive Metrics."""
     a_dag_settings: Dict[str, Any] = Field(default_factory=dict, description="Settings for Adaptive Delta Adjusted Gamma Exposure (A-DAG).")
     e_sdag_settings: Dict[str, Any] = Field(default_factory=dict, description="Settings for Enhanced Skew and Delta Adjusted Gamma Exposure (E-SDAG) methodologies.")
-    d_tdpi_settings: Dict[str, Any] = Field(default_factory=dict, description="Settings for Dynamic Time Decay Pressure Indicator (D-TDPI).")
+    d_tdpi_settings: DTDPIParamsConfig = Field(default_factory=DTDPIParamsConfig, description="Settings for Dynamic Time Decay Pressure Indicator (D-TDPI).")
     vri_2_0_settings: Dict[str, Any] = Field(default_factory=dict, description="Settings for Volatility Regime Indicator Version 2.0 (VRI 2.0).")
     enhanced_heatmap_settings: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Settings for enhanced heatmap generation.")
     class Config: extra = 'forbid'
