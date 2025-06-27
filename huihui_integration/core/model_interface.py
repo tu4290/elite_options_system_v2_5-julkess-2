@@ -221,6 +221,8 @@ class HuiHuiPydanticModel(Model):
             expert_mode: Force specific expert ("market_regime", "options_flow", "sentiment", "orchestrator")
             enable_eots_integration: Enable EOTS schema validation and metrics integration
         """
+        if PYDANTIC_AI_AVAILABLE: # Ensure super().__init__() is only called if Model is the actual pydantic_ai.Model
+            super().__init__() # Call parent Model's __init__
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -442,7 +444,9 @@ class HuiHuiPydanticModel(Model):
             logger.info(f"🧠 Routing to HuiHui {expert} expert")
 
             # Get response from HuiHui expert
-            response = self.client.chat_huihui(
+            # Ensure the synchronous self.client.chat_huihui is run in a thread
+            response = await asyncio.to_thread(
+                self.client.chat_huihui,
                 prompt=enhanced_prompt,
                 specialist=expert,
                 temperature=self.temperature
@@ -672,13 +676,15 @@ class HuiHuiMarketRegimeModel(Model):
             system_prompt, user_content = self._extract_messages_content(messages)
 
             # Get response from HuiHui expert
-            response = self.client.chat_huihui(
+            # Ensure the synchronous self.client.chat_huihui is run in a thread
+            response_str = await asyncio.to_thread(
+                self.client.chat_huihui,
                 prompt=user_content,
                 specialist=expert,
                 temperature=self.temperature
             )
 
-            assistant_message = AssistantMessage(content=response)
+            assistant_message = AssistantMessage(content=response_str)
             return ModelResponse(message=assistant_message, timestamp=None, usage=None)
 
         except Exception as e:

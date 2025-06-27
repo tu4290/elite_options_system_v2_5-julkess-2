@@ -24,17 +24,24 @@ from pydantic import BaseModel, Field
 from data_models.eots_schemas_v2_5 import (
     ProcessedDataBundleV2_5,
     ProcessedUnderlyingAggregatesV2_5,
-    ProcessedContractMetricsV2_5,
-    ProcessedStrikeLevelMetricsV2_5,
-    DynamicThresholdsV2_5,
-    TickerContextDictV2_5
+    # ProcessedContractMetricsV2_5, # Not directly used in this expert's current logic
+    # ProcessedStrikeLevelMetricsV2_5, # Not directly used
+    # DynamicThresholdsV2_5, # Not directly used
+    # TickerContextDictV2_5, # Not directly used
+    HuiHuiAnalysisRequestV2_5, # Added
+    HuiHuiAnalysisResponseV2_5, # Added
+    HuiHuiExpertConfigV2_5, # Added for __init__
+    HuiHuiModelConfigV2_5 # Added for type hint
 )
 
-from pydantic_ai import Agent
+# HuiHui base expert
+from huihui_integration.core.base_expert import BaseHuiHuiExpert # Added
+
+from pydantic_ai import Agent # Keep for now, though agent is unused
 
 logger = logging.getLogger(__name__)
 
-class EliteFlowConfig(BaseModel):
+class EliteFlowConfig(BaseModel): # This is the expert's *specific* config fields
     """PYDANTIC-FIRST: Configuration for elite options flow analysis"""
     
     # Elite Impact Calculator Settings
@@ -73,9 +80,10 @@ class EliteFlowConfig(BaseModel):
     flow_significance_threshold: float = Field(default=2.0, description="Flow significance threshold")
     
     # HuiHui Model Configuration
-    huihui_model_config: Dict[str, Any] = Field(
-        default_factory=lambda: {"model": "openai:gpt-3.5-turbo", "temperature": 0.1},
-        description="HuiHui model configuration"
+    # To align with schemas and how MarketIntelligenceExpert handles it:
+    huihui_model_config: Optional[HuiHuiModelConfigV2_5] = Field(
+        default=None, # Default to None, can be populated from HuiHuiExpertConfigV2_5
+        description="HuiHui model configuration for the AI agent (if used)."
     )
     
     class Config:
@@ -258,7 +266,7 @@ class EliteFlowResult(BaseModel):
     class Config:
         extra = 'forbid'
 
-class UltimateOptionsFlowExpert:
+class UltimateOptionsFlowExpert(BaseHuiHuiExpert): # Inherit from BaseHuiHuiExpert
     """
     🚀 ULTIMATE OPTIONS FLOW EXPERT - LEGENDARY FLOW ANALYSIS
     
@@ -266,11 +274,18 @@ class UltimateOptionsFlowExpert:
     Provides SDAG/DAG analysis, VAPI-FA/DWFD/TW-LAF analytics, and ML-powered flow intelligence.
     """
     
-    def __init__(self, config: Optional[EliteFlowConfig] = None, db_manager=None):
-        self.logger = logger.getChild(self.__class__.__name__)
-        self.config = config or EliteFlowConfig()
-        self.db_manager = db_manager
-        
+    def __init__(self, expert_config: HuiHuiExpertConfigV2_5, db_manager=None):
+        super().__init__(expert_config, db_manager) # Call super with HuiHuiExpertConfigV2_5
+        # self.config is now HuiHuiExpertConfigV2_5 from base class.
+        # Parse specific EliteFlowConfig from expert_config.expert_specific_config
+        if isinstance(expert_config.expert_specific_config, EliteFlowConfig):
+            self.expert_specific_params: EliteFlowConfig = expert_config.expert_specific_config
+        elif isinstance(expert_config.expert_specific_config, dict):
+            self.expert_specific_params: EliteFlowConfig = EliteFlowConfig(**expert_config.expert_specific_config)
+        else:
+            self.logger.warning("No specific EliteFlowConfig found in HuiHuiExpertConfigV2_5.expert_specific_config, using defaults.")
+            self.expert_specific_params: EliteFlowConfig = EliteFlowConfig()
+
         # Performance tracking
         self.analysis_count = 0
         self.total_processing_time = 0.0
@@ -331,17 +346,35 @@ class UltimateOptionsFlowExpert:
     def _initialize_ai_agent(self):
         """Initialize AI agent for flow analysis"""
         try:
-            provider = self.config.huihui_model_config.get('provider', 'openai')
-            model_name = self.config.huihui_model_config.get('model_name', 'gpt-4')
-            temperature = self.config.huihui_model_config.get('temperature', 0.1)
-            # Construct config as a validated Pydantic model if required
-            agent_config = {
-                'model': model_name,
-                'provider': provider,
-                'temperature': temperature
-            }
-            self.ai_agent = Agent(**agent_config)
-            self.logger.info("🧠 AI Agent initialized for flow analysis")
+            # Access huihui_model_config from the expert_specific_params
+            model_config_data = self.expert_specific_params.huihui_model_config
+            if self.expert_specific_params.ml_enabled and model_config_data: # Check if ML is enabled via specific config
+                # Assuming HuiHuiModelConfigV2_5 has fields 'model_name' and 'api_provider'
+                model_name = getattr(model_config_data, 'model_name', 'openai:gpt-3.5-turbo')
+                api_provider = getattr(model_config_data, 'api_provider', 'openai')
+                temperature = getattr(model_config_data, 'temperature', 0.1)
+
+                parsed_provider = api_provider
+                parsed_model_name = model_name
+                if ':' in model_name and api_provider == 'openai':
+                    parts = model_name.split(':', 1)
+                    if len(parts) == 2:
+                        parsed_provider, parsed_model_name = parts
+
+                agent_config = {
+                    'model': parsed_model_name,
+                    'provider': parsed_provider,
+                    'temperature': temperature,
+                    'system_prompt': self._get_flow_analysis_prompt()
+                }
+                self.ai_agent = Agent(**agent_config)
+                self.logger.info(f"🧠 AI Agent initialized for flow analysis with model: {parsed_provider}:{parsed_model_name}")
+            else:
+                self.logger.info("AI agent initialization skipped as ML is disabled or model config is missing.")
+                self.ai_agent = None
+        except AttributeError as ae:
+             self.logger.warning(f"AI Agent initialization failed due to AttributeError (likely missing huihui_model_config or its fields): {ae}")
+             self.ai_agent = None
         except Exception as e:
             self.logger.warning(f"AI Agent initialization failed: {e}")
             self.ai_agent = None
@@ -375,38 +408,120 @@ class UltimateOptionsFlowExpert:
             self.logger.info("🏛️ Initializing ELITE flow analysis capabilities...")
             
             # Initialize Elite Impact Calculator
-            if self.config.elite_calculator_enabled:
+            if self.expert_specific_params.elite_calculator_enabled:
                 self.elite_calculator_initialized = True
                 self.logger.info("🎯 Elite Impact Calculator initialized")
             
             # Initialize ML models
-            if self.config.ml_enabled:
+            if self.expert_specific_params.ml_enabled:
                 # Placeholder for ML model loading
-                self.ml_model_loaded = True
-                self.logger.info("🤖 ML flow classification models loaded")
+                self.ml_model_loaded = True # This would involve loading actual model files
+                self.logger.info(f"🤖 ML flow classification models ({self.expert_specific_params.ml_model_name}) loaded")
             
-            self.logger.info("🚀 ELITE flow analysis capabilities initialized successfully")
+            super().initialize() # Call base class initialize
+            self.logger.info(f"🚀 {self.config.expert_name} ELITE flow analysis capabilities initialized successfully")
             
         except Exception as e:
-            self.logger.error(f"Elite capabilities initialization failed: {e}")
-    
-    async def analyze_options_flow(self, data_bundle: ProcessedDataBundleV2_5, analysis_request: Optional[Dict[str, Any]] = None) -> EliteFlowResult:
+            self.logger.error(f"Elite capabilities initialization failed for {self.config.expert_name}: {e}")
+            self.is_initialized = False # from base class
+
+    # --- Implementation of BaseHuiHuiExpert Abstract Methods ---
+
+    def get_specialization_keywords(self) -> List[str]:
+        """Get keywords that define this expert's specialization."""
+        return ["options", "flow", "vapi-fa", "dwfd", "tw-laf", "gamma", "sdag", "dag", "institutional flow", "dealer positioning"]
+
+    def validate_input_data(self, data_bundle: ProcessedDataBundleV2_5) -> bool:
+        """Validate that input data contains required fields for this expert."""
+        if not data_bundle or not data_bundle.underlying_data_enriched:
+            self.logger.warning("Input validation failed: Missing underlying_data_enriched in data_bundle.")
+            return False
+        # Check for specific metrics needed by this expert's logic
+        required_metrics = ['e_sdag_mult_und', 'a_dag_total_und', 'vapi_fa_raw_und', 'gib_oi_based_und']
+        for metric in required_metrics:
+            if not hasattr(data_bundle.underlying_data_enriched, metric):
+                self.logger.debug(f"Input validation: Metric {metric} missing, will default to 0 or handle gracefully.")
+        return True
+
+    async def analyze(self, request: HuiHuiAnalysisRequestV2_5) -> HuiHuiAnalysisResponseV2_5:
         """
-        🚀 LEGENDARY OPTIONS FLOW ANALYSIS
+        Perform expert analysis on provided data. Adapts original analyze_options_flow.
+        """
+        if not request.bundle_data:
+            self.logger.error("No data bundle provided in HuiHuiAnalysisRequestV2_5.")
+            return HuiHuiAnalysisResponseV2_5(
+                expert_used=self.config.expert_id,
+                analysis_content="Error: No data bundle provided.",
+                confidence_score=0.0,
+                processing_time=0.0,
+                insights=["Critical error: Missing data bundle."],
+                errors=["Missing ProcessedDataBundleV2_5 in request."]
+            )
+
+        if not self.validate_input_data(request.bundle_data):
+            self.logger.error("Input data validation failed for OptionsFlowExpert.")
+            return HuiHuiAnalysisResponseV2_5(
+                expert_used=self.config.expert_id,
+                analysis_content="Error: Input data validation failed.",
+                confidence_score=0.0,
+                processing_time=0.0,
+                insights=["Critical error: Invalid input data."],
+                errors=["Input data validation failed."]
+            )
+
+        # Call the original detailed analysis logic
+        # analyze_options_flow_logic was the original name, assuming it's async
+        elite_flow_result: EliteFlowResult = await self.analyze_options_flow_logic(
+            request.bundle_data,
+            getattr(request, 'context', None)
+        )
+
+        # Package EliteFlowResult into HuiHuiAnalysisResponseV2_5
+        analysis_content_str = elite_flow_result.model_dump_json(indent=2)
         
-        PYDANTIC-FIRST: Validates all inputs and outputs against EOTS schemas
+        top_insights = [
+            f"Elite Flow Score: {elite_flow_result.elite_flow_score:.2f}",
+            f"Institutional Probability: {elite_flow_result.flow_classification.institutional_probability:.2%}",
+            f"Gamma Squeeze Prob: {elite_flow_result.gamma_dynamics.gamma_squeeze_probability:.2%}"
+        ]
+        # Potentially add more insights from elite_flow_result if AI agent not used or fails
+
+        response = HuiHuiAnalysisResponseV2_5(
+            expert_used=self.config.expert_id,
+            analysis_content=analysis_content_str,
+            confidence_score=elite_flow_result.confidence_level,
+            processing_time=elite_flow_result.processing_time_ms / 1000.0, # convert ms to s
+            insights=top_insights,
+            errors=elite_flow_result.errors
+        )
+        self.last_analysis_time = datetime.utcnow()
+        self.record_usage(request, response, elite_flow_result.processing_time_ms)
+        return response
+
+    async def analyze_options_flow_logic(self, data_bundle: ProcessedDataBundleV2_5, analysis_context: Optional[Dict[str, Any]] = None) -> EliteFlowResult:
+        """
+        Original options flow analysis logic.
+        Renamed from analyze_options_flow to be called by the new analyze method.
         """
         start_time = datetime.now()
-        analysis_id = f"flow_{data_bundle.underlying_data_enriched.symbol}_{start_time.strftime('%Y%m%d_%H%M%S')}"
+        # Ensure symbol is available for analysis_id
+        symbol_for_id = "UNKNOWN_SYMBOL"
+        if data_bundle and data_bundle.underlying_data_enriched and data_bundle.underlying_data_enriched.symbol:
+            symbol_for_id = data_bundle.underlying_data_enriched.symbol
+
+        analysis_id = f"flow_{symbol_for_id}_{start_time.strftime('%Y%m%d_%H%M%S')}"
         
         try:
+            if not data_bundle or not data_bundle.underlying_data_enriched:
+                raise ValueError("ProcessedDataBundleV2_5 and underlying_data_enriched must be provided.")
             ticker = data_bundle.underlying_data_enriched.symbol
             self.logger.info(f"🚀 Starting legendary flow analysis for {ticker}")
             
             # Count contracts for processing speed calculation
-            contracts_count = len(data_bundle.options_data_with_metrics)
+            contracts_count = len(data_bundle.options_data_with_metrics) if data_bundle.options_data_with_metrics else 0
             
             # Step 1: Calculate SDAG analysis (4 methodologies)
+            # These internal methods need to be async if they do IO or heavy CPU
             sdag_analysis = await self._calculate_sdag_analysis(data_bundle)
             
             # Step 2: Calculate DAG analysis (4 methodologies)
@@ -429,7 +544,7 @@ class UltimateOptionsFlowExpert:
             # Calculate processing metrics
             end_time = datetime.now()
             processing_time_ms = (end_time - start_time).total_seconds() * 1000
-            processing_speed_cps = contracts_count / max(processing_time_ms / 1000, 0.001)
+            processing_speed_cps = contracts_count / max(processing_time_ms / 1000.0, 0.001) if contracts_count > 0 else 0.0
             
             # Create result
             result = EliteFlowResult(
@@ -456,97 +571,32 @@ class UltimateOptionsFlowExpert:
             )
             
             # Update performance tracking
-            self._update_performance_tracking(result)
+            self._update_performance_tracking(result) # Internal tracking for this expert
             
-            self.logger.info(f"🚀 Legendary flow analysis completed for {ticker} in {processing_time_ms:.2f}ms")
-            self.logger.info(f"🎯 Processing speed: {processing_speed_cps:.0f} contracts/second")
+            self.logger.info(f"🚀 Legendary flow analysis logic completed for {ticker} in {processing_time_ms:.2f}ms")
+            if contracts_count > 0:
+                self.logger.info(f"🎯 Processing speed: {processing_speed_cps:.0f} contracts/second")
             
             return result
             
         except Exception as e:
-            self.logger.error(f"Legendary flow analysis failed for {data_bundle.underlying_data_enriched.symbol}: {e}")
-            
-            # Create error result
-            end_time = datetime.now()
-            processing_time_ms = (end_time - start_time).total_seconds() * 1000
-            
-            error_result = EliteFlowResult(
+            self.logger.error(f"Legendary flow analysis logic failed for {symbol_for_id}: {e}", exc_info=True)
+            # Fallback error result
+            return EliteFlowResult(
                 analysis_id=analysis_id,
-                ticker=data_bundle.underlying_data_enriched.symbol,
+                ticker=symbol_for_id,
                 timestamp=start_time,
-                processing_time_ms=processing_time_ms,
+                processing_time_ms=(datetime.now() - start_time).total_seconds() * 1000,
                 contracts_processed=0,
-                sdag_analysis=SDAGAnalysis(
-                    multiplicative_sdag=0.0,
-                    directional_sdag=0.0,
-                    weighted_sdag=0.0,
-                    volatility_focused_sdag=0.0,
-                    sdag_consensus_score=0.0,
-                    sdag_confidence=0.0
-                ),
-                dag_analysis=DAGAnalysis(
-                    multiplicative_dag=0.0,
-                    additive_dag=0.0,
-                    weighted_dag=0.0,
-                    consensus_dag=0.0,
-                    dag_consensus_score=0.0,
-                    dag_confidence=0.0
-                ),
-                advanced_analytics=AdvancedFlowAnalytics(
-                    vapi_fa_raw=0.0,
-                    vapi_fa_z_score=0.0,
-                    vapi_fa_percentile=0.0,
-                    dwfd_raw=0.0,
-                    dwfd_z_score=0.0,
-                    dwfd_institutional_score=0.0,
-                    tw_laf_raw=0.0,
-                    tw_laf_z_score=0.0,
-                    tw_laf_momentum_score=0.0,
-                    flow_intensity_composite=0.0,
-                    flow_direction_confidence=0.0,
-                    institutional_probability=0.0
-                ),
-                flow_classification=FlowClassification(
-                    flow_type="error",
-                    flow_subtype="analysis_failed",
-                    flow_intensity="unknown",
-                    institutional_probability=0.0,
-                    retail_probability=0.0,
-                    dealer_probability=0.0,
-                    directional_bias="unknown",
-                    time_sensitivity="unknown",
-                    size_classification="unknown",
-                    sophistication_score=0.0,
-                    information_content=0.0,
-                    market_impact_potential=0.0
-                ),
-                gamma_dynamics=GammaDynamicsAnalysis(
-                    total_gamma_exposure=0.0,
-                    call_gamma_exposure=0.0,
-                    put_gamma_exposure=0.0,
-                    net_gamma_exposure=0.0,
-                    dealer_gamma_position=0.0,
-                    dealer_hedging_pressure=0.0,
-                    gamma_squeeze_probability=0.0,
-                    gamma_acceleration=0.0,
-                    gamma_momentum=0.0,
-                    gamma_stability=0.0,
-                    upside_gamma_impact=0.0,
-                    downside_gamma_impact=0.0,
-                    gamma_neutral_level=None
-                ),
-                elite_flow_score=0.0,
-                market_regime_alignment=0.0,
-                predictive_power=0.0,
-                processing_speed_cps=0.0,
-                accuracy_score=0.0,
-                confidence_level=0.0,
-                data_quality_score=0.0,
-                errors=[str(e)]
+                sdag_analysis=SDAGAnalysis(multiplicative_sdag=0, directional_sdag=0, weighted_sdag=0, volatility_focused_sdag=0, sdag_consensus_score=0, sdag_confidence=0),
+                dag_analysis=DAGAnalysis(multiplicative_dag=0, additive_dag=0, weighted_dag=0, consensus_dag=0, dag_consensus_score=0, dag_confidence=0),
+                advanced_analytics=AdvancedFlowAnalytics(vapi_fa_raw=0, vapi_fa_z_score=0, vapi_fa_percentile=0, dwfd_raw=0, dwfd_z_score=0, dwfd_institutional_score=0, tw_laf_raw=0, tw_laf_z_score=0, tw_laf_momentum_score=0, flow_intensity_composite=0, flow_direction_confidence=0, institutional_probability=0),
+                flow_classification=FlowClassification(flow_type="error", flow_subtype="analysis_failed", flow_intensity="unknown", institutional_probability=0, retail_probability=0, dealer_probability=0, directional_bias="unknown", time_sensitivity="unknown", size_classification="unknown", sophistication_score=0, information_content=0, market_impact_potential=0),
+                gamma_dynamics=GammaDynamicsAnalysis(total_gamma_exposure=0, call_gamma_exposure=0, put_gamma_exposure=0, net_gamma_exposure=0, dealer_gamma_position=0, dealer_hedging_pressure=0, gamma_squeeze_probability=0, gamma_acceleration=0, gamma_momentum=0, gamma_stability=0, upside_gamma_impact=0, downside_gamma_impact=0),
+                elite_flow_score=0, market_regime_alignment=0, predictive_power=0, processing_speed_cps=0, accuracy_score=0, confidence_level=0, data_quality_score=0,
+                errors=[f"Critical failure in analyze_options_flow_logic: {str(e)}"]
             )
-            
-            return error_result
-    
+
     async def _calculate_sdag_analysis(self, data_bundle: ProcessedDataBundleV2_5) -> SDAGAnalysis:
         """Calculate SDAG analysis using 4 methodologies"""
         try:

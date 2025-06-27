@@ -261,12 +261,56 @@ class ExpertRouter:
             HuiHuiExpertType.MARKET_REGIME: {
                 "name": "huihui_ai/huihui-moe-abliterated:5b-a1.7b",
                 "display_name": "🏛️ HuiHui Market Regime Expert",
-                "max_tokens": 350,
-                "temperature": 0.05,
-                "system_prompt": "[EXPERT:MARKET_REGIME] You are the HuiHui Market Regime Expert...",
-                "semantic_keywords": ["market regime", "volatility", "VRI", "market structure"]
+                "max_tokens": 350,  # ULTRA-OPTIMIZED for speed
+                "temperature": 0.05,  # Lower for more consistency
+                "system_prompt": "[EXPERT:MARKET_REGIME] You are the HuiHui Market Regime Expert specializing in EOTS v2.5 analytics. VRI means 'Volatility Regime Indicator' - a core EOTS metric that measures volatility regime strength and transitions. VRI values indicate: positive = bullish volatility regime, negative = bearish volatility regime. Analyze volatility patterns, regime transitions, and market structure using EOTS terminology. Be concise and EOTS-focused.",
+                "semantic_keywords": [
+                    "market regime analysis", "volatility regime indicator", "VRI analysis",
+                    "volatility patterns", "regime transitions", "vol expansion", "vol contraction",
+                    "market structure", "volatility regimes", "regime detection", "VFI analysis",
+                    "VVR analysis", "VCI analysis", "volatility clustering", "regime shifts"
+                ]
             },
-            # ... other expert configurations ...
+            HuiHuiExpertType.OPTIONS_FLOW: {
+                "name": "huihui_ai/huihui-moe-abliterated:5b-a1.7b",
+                "display_name": "🚀 HuiHui Options Flow Expert",
+                "max_tokens": 350, # ULTRA-OPTIMIZED for speed
+                "temperature": 0.05, # Lower for more consistency
+                "system_prompt": "[EXPERT:OPTIONS_FLOW] You are the HuiHui Options Flow Expert specializing in EOTS v2.5 metrics. MSPI means 'Market Structure Pressure Index' - an EOTS composite metric combining A-DAG, D-TDPI, VRI-2.0, and E-SDAG components to measure structural market pressure. Analyze VAPI-FA (Volume-Adjusted Premium Intensity), DWFD (Delta-Weighted Flow Dynamics), and institutional flow patterns using EOTS terminology. Be concise and EOTS-focused.",
+                "semantic_keywords": [
+                    "options flow analysis", "MSPI analysis", "market structure pressure index",
+                    "VAPI-FA analysis", "DWFD analysis", "TW-LAF analysis", "gamma exposure",
+                    "delta flow", "institutional flow", "options volume", "flow dynamics",
+                    "A-DAG analysis", "D-TDPI analysis", "E-SDAG analysis", "VRI-2.0 analysis",
+                    "structural pressure", "flow patterns", "options positioning"
+                ]
+            },
+            HuiHuiExpertType.SENTIMENT: {
+                "name": "huihui_ai/huihui-moe-abliterated:5b-a1.7b",
+                "display_name": "🧠 HuiHui Sentiment Expert",
+                "max_tokens": 350, # ULTRA-OPTIMIZED for speed
+                "temperature": 0.05, # Consistent with other focused experts here
+                "system_prompt": "[EXPERT:SENTIMENT] You are the HuiHui Sentiment Expert specializing in EOTS v2.5 behavioral analysis. Analyze market sentiment, psychology, and behavioral patterns that impact EOTS trading decisions. Focus on sentiment indicators, news intelligence, and crowd psychology. Be concise and EOTS-focused.",
+                "semantic_keywords": [
+                    "market sentiment analysis", "investor psychology", "behavioral analysis",
+                    "news intelligence", "crowd psychology", "sentiment indicators",
+                    "market mood", "fear and greed", "sentiment shifts", "behavioral patterns",
+                    "news sentiment", "social sentiment", "market psychology", "investor behavior"
+                ]
+            },
+            HuiHuiExpertType.ORCHESTRATOR: {
+                "name": "huihui_ai/huihui-moe-abliterated:5b-a1.7b",
+                "display_name": "🎯 HuiHui Meta-Orchestrator",
+                "max_tokens": 500,  # Slightly larger for synthesis
+                "temperature": 0.1,   # Slightly higher for strategic thinking
+                "system_prompt": "[EXPERT:ORCHESTRATOR] You are the HuiHui Meta-Orchestrator specializing in EOTS v2.5 strategic synthesis. Combine insights from all EOTS metrics including VRI (Volatility Regime Indicator), MSPI (Market Structure Pressure Index), VAPI-FA, DWFD, and regime analysis to provide comprehensive trading recommendations. Be strategic and EOTS-focused.",
+                "semantic_keywords": [
+                    "strategic analysis", "comprehensive recommendation", "trade strategy",
+                    "position recommendation", "overall assessment", "strategic synthesis",
+                    "trading decision", "risk management", "portfolio strategy", "market outlook",
+                    "strategic planning", "investment strategy", "comprehensive analysis"
+                ]
+            }
         }
         
         # Background tasks

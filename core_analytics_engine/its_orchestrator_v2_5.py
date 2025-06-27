@@ -99,19 +99,19 @@ except ImportError:
 # HuiHui integration - USING USER'S EXISTING STRUCTURE
 try:
     from huihui_integration.core.model_interface import create_market_regime_model
-    from huihui_integration import (
-        get_market_regime_expert,
-        get_options_flow_expert,
-        get_sentiment_expert,
-        get_expert_coordinator,
-        is_system_ready
-    )
+    from huihui_integration import get_expert_coordinator, is_system_ready
+    # Removed direct expert imports as they are managed by the coordinator
+    # from huihui_integration import get_market_regime_expert, get_options_flow_expert, get_sentiment_expert
+    from huihui_integration.orchestrator_bridge.expert_coordinator import LegendaryExpertCoordinator # Explicit import for type hinting
     LEGENDARY_EXPERTS_AVAILABLE = True
 except ImportError as e:
     LEGENDARY_EXPERTS_AVAILABLE = False
     ExpertCommunicationProtocol = None
+    LegendaryExpertCoordinator = None # Define for type hinting if import fails
 
 logger = logging.getLogger(__name__)
+# For generating UUIDs for analysis requests
+import uuid
 
 class LegendaryOrchestrationConfig(BaseModel):
     """PYDANTIC-FIRST: Configuration for legendary orchestration capabilities"""
@@ -161,18 +161,18 @@ class ITSOrchestratorV2_5:
         
         # Initialize database manager first
         self._db_manager = DatabaseManagerV2_5(config_manager)
-        
-        # Initialize historical data manager
-        self.historical_data_manager = HistoricalDataManagerV2_5(
-            config_manager=config_manager,
-            db_manager=self._db_manager
-        )
-        
-        # Initialize metrics calculator
+
+        # Initialize data fetcher and processor
+        self.convex_fetcher = ConvexValueDataFetcherV2_5(config_manager)
+        # Metrics calculator needs to be initialized before initial_processor if it's a dependency
         self.metrics_calculator = MetricsCalculatorV2_5(
             config_manager=config_manager,
-            historical_data_manager=self.historical_data_manager
+            historical_data_manager=HistoricalDataManagerV2_5(config_manager=config_manager, db_manager=self._db_manager) # Temp, review dependency
         )
+        self.initial_processor = InitialDataProcessorV2_5(config_manager, self.metrics_calculator)
+
+        # Initialize historical data manager (already used by metrics_calculator)
+        self.historical_data_manager = self.metrics_calculator.historical_data_manager
         
         # Initialize market regime engine
         self.market_regime_engine = MarketRegimeEngineV2_5(config_manager)
@@ -190,26 +190,26 @@ class ITSOrchestratorV2_5:
         self.news_intelligence = NewsIntelligenceEngineV2_5(config_manager=config_manager)
         
         # Initialize adaptive learning integration
+        adaptive_config_settings = config_manager.get_setting("adaptive_learning_settings", {})
         adaptive_config = AdaptiveLearningConfigV2_5(
-            learning_enabled=True,
-            learning_rate=0.01,
-            pattern_discovery_threshold=0.7,
-            validation_window_days=30,
-            max_patterns_per_symbol=100,
-            learning_schedule="daily",
-            auto_adaptation=True,
-            **config_manager.get_setting("adaptive_learning_settings", {})
+            learning_enabled=adaptive_config_settings.get("learning_enabled", True),
+            learning_rate=adaptive_config_settings.get("learning_rate", 0.01),
+            pattern_discovery_threshold=adaptive_config_settings.get("pattern_discovery_threshold", 0.7),
+            validation_window_days=adaptive_config_settings.get("validation_window_days", 30),
+            max_patterns_per_symbol=adaptive_config_settings.get("max_patterns_per_symbol", 100),
+            learning_schedule=adaptive_config_settings.get("learning_schedule", "daily"),
+            auto_adaptation=adaptive_config_settings.get("auto_adaptation", True)
         )
         self.adaptive_learning = AdaptiveLearningIntegrationV2_5(config=adaptive_config)
         
         # Initialize prediction config
+        prediction_settings = config_manager.get_setting("prediction_settings", {})
         self.prediction_config = PredictionConfigV2_5(
-            prediction_window=30,
-            min_confidence_threshold=0.7,
-            max_predictions_per_symbol=5,
-            prediction_frequency="1H",
-            validation_frequency="1D",
-            **config_manager.get_setting("prediction_settings", {})
+            prediction_window=prediction_settings.get("prediction_window",30),
+            min_confidence_threshold=prediction_settings.get("min_confidence_threshold",0.7),
+            max_predictions_per_symbol=prediction_settings.get("max_predictions_per_symbol",5),
+            prediction_frequency=prediction_settings.get("prediction_frequency","1H"),
+            validation_frequency=prediction_settings.get("validation_frequency","1D")
         )
         
         # Initialize performance tracker
@@ -222,18 +222,42 @@ class ITSOrchestratorV2_5:
             active_processes=["market_regime_engine", "market_intelligence_engine", "atif_engine", "news_intelligence", "adaptive_learning"],
             status_message="System initialized and running"
         )
-        
+
+        # Initialize Legendary Expert Coordinator
+        if LEGENDARY_EXPERTS_AVAILABLE:
+            self.expert_coordinator_ref: Optional[LegendaryExpertCoordinator] = get_expert_coordinator()
+            if self.expert_coordinator_ref and hasattr(self.expert_coordinator_ref, 'initialize'):
+                 # Schedule initialization if the coordinator has such a method
+                asyncio.create_task(self.expert_coordinator_ref.initialize())
+                self.logger.info("🚀 Legendary Expert Coordinator obtained and initialization scheduled.")
+            elif self.expert_coordinator_ref:
+                self.logger.info("🚀 Legendary Expert Coordinator obtained.")
+            else:
+                self.logger.error("🚨 Failed to obtain Legendary Expert Coordinator.")
+        else:
+            self.expert_coordinator_ref = None
+            self.logger.warning("🚨 Legendary Experts are NOT available. MoE functionality will be limited.")
+
+        # Placeholder for current analysis context, if needed by MOE response creation
+        self.current_analysis: Optional[Dict[str, Any]] = None
+        self._cache_manager: Optional[EnhancedCacheManagerV2_5] = None # Ensure _cache_manager is initialized
+        self.start_time = datetime.now() # For uptime calculation in get_legendary_performance_metrics
+        self.performance_metrics: Dict[str, Any] = {} # For performance tracking
+
         self.logger.info("🎯 ITS Orchestrator initialized successfully with all components")
         
+    # This method seems to be a duplicate of market_intelligence_engine.determine_market_regime
+    # And it's also different from the HuiHui market_regime_expert.
+    # For now, we keep the EOTS internal engine call.
     def analyze_market_regime(self, data_bundle: ProcessedDataBundleV2_5) -> str:
-        """Analyze market regime using the market regime engine."""
+        """Analyze market regime using the EOTS market regime engine."""
         try:
-            # Get market regime from the engine
+            # Get market regime from the EOTS engine
             regime = self.market_regime_engine.determine_market_regime(data_bundle)
-            self.logger.info(f"Market regime determined: {regime}")
+            self.logger.info(f"EOTS Market regime determined: {regime}")
             return regime
         except Exception as e:
-            self.logger.error(f"Failed to analyze market regime: {e}")
+            self.logger.error(f"Failed to analyze EOTS market regime: {e}")
             return "UNDEFINED"
             
     def _calculate_regime_metrics(self, data_bundle: ProcessedDataBundleV2_5) -> Dict[str, float]:
@@ -500,66 +524,98 @@ class ITSOrchestratorV2_5:
                 self.logger.error(f"Failed to get processed data bundle for {ticker}")
                 return self._create_error_bundle(ticker, "Failed to get processed data bundle")
 
-            # Expert analysis tasks
-            expert_tasks = []
-            expert_results = {}
-            
-            # Market Regime Analysis
-            if self.market_regime_engine:
-                regime_task = self.market_regime_engine.analyze_market_regime(processed_bundle)
-                expert_tasks.append(regime_task)
-            
-            # Options Flow Analysis
-            if self.options_flow_expert:
-                flow_task = self.options_flow_expert.analyze_options_flow(processed_bundle)
-                expert_tasks.append(flow_task)
-            
-            # Market Intelligence Analysis
-            if self.market_intelligence_expert:
-                intel_task = self.market_intelligence_expert.analyze_market_intelligence(processed_bundle)
-                expert_tasks.append(intel_task)
-            
-            # Execute all expert analyses in parallel
-            if expert_tasks:
-                expert_results_list = await asyncio.gather(*expert_tasks)
-                
-                # Map results to their respective experts
-                if self.market_regime_engine:
-                    expert_results['market_regime'] = expert_results_list.pop(0)
-                if self.options_flow_expert:
-                    expert_results['options_flow'] = expert_results_list.pop(0)
-                if self.market_intelligence_expert:
-                    expert_results['market_intelligence'] = expert_results_list.pop(0)
-            
-            # Create final analysis bundle
             bundle_timestamp = datetime.now()
+            analysis_id = f"{ticker}_{bundle_timestamp.strftime('%Y%m%d%H%M%S%f')}_{uuid.uuid4().hex[:8]}"
+            self.current_analysis = {"analysis_id": analysis_id, "analysis_type": "full_eots_suite"}
+
+
+            # Generate Key Levels from database
+            key_levels_data = await self._generate_key_levels(processed_bundle, ticker, bundle_timestamp)
+
+            # Initialize active_recommendations and system_status_messages
+            active_recommendations: List[ATIFStrategyDirectivePayloadV2_5] = []
+            system_status_messages: List[str] = []
+            coordinator_response_dict: Optional[Dict[str, Any]] = None
+
+            if self.expert_coordinator_ref and LEGENDARY_EXPERTS_AVAILABLE:
+                self.logger.info(f"🚀 Initiating Legendary MoE Analysis for {ticker} via Coordinator.")
+                huihui_request = HuiHuiAnalysisRequestV2_5(
+                    request_id=analysis_id,
+                    analysis_type="full_eots_suite", # Example, could be more specific
+                    target_symbol=ticker,
+                    data_bundle_uuid=str(uuid.uuid4()), # Or a hash of the bundle
+                    processed_data_bundle=processed_bundle,
+                    context_data_version="v2.5",
+                    # specific_expert_config=None, # Let coordinator handle defaults or derive
+                    # custom_parameters=kwargs
+                )
+
+                try:
+                    coordinator_response_dict = await self.expert_coordinator_ref.legendary_coordinate_analysis(
+                        request=huihui_request
+                        # market_context can be passed if available/derived
+                    )
+
+                    if coordinator_response_dict and coordinator_response_dict.get('status') == "legendary_coordination_complete":
+                        system_status_messages.append(f"MoE Coordination successful for {ticker}.")
+                        self.logger.info(f"MoE Coordination successful for {ticker}. Response: {coordinator_response_dict.get('recommendations')}")
+
+                        # Extract recommendations
+                        coord_recs = coordinator_response_dict.get('recommendations', {})
+                        primary_rec_str = coord_recs.get('primary', 'NEUTRAL')
+                        confidence = coord_recs.get('confidence', 0.0)
+
+                        # Basic mapping to ATIFStrategyDirectivePayloadV2_5
+                        # This is a placeholder. A more robust mapping is needed.
+                        directive = ATIFStrategyDirectivePayloadV2_5(
+                            strategy_id=f"moe_rec_{analysis_id}",
+                            symbol=ticker,
+                            direction=primary_rec_str.upper(), # Assuming primary_rec_str is like "BUY", "SELL", "HOLD"
+                            confidence_score=confidence,
+                            entry_price_target=processed_bundle.underlying_data_enriched.price, # Example
+                            # Other fields need to be populated based on a more detailed contract
+                            # with the coordinator's response structure or further analysis.
+                            management_parameters=ATIFManagementDirectiveV2_5(),
+                            generated_at=bundle_timestamp,
+                            reasoning=[f"MoE Recommendation: {primary_rec_str} with confidence {confidence}"]
+                        )
+                        active_recommendations.append(directive)
+                        system_status_messages.append(f"MoE Recommendation: {primary_rec_str} (Confidence: {confidence:.2f})")
+
+                    else:
+                        error_msg = coordinator_response_dict.get('error', 'Unknown error from coordinator') if coordinator_response_dict else 'Coordinator did not return a response'
+                        system_status_messages.append(f"MoE Coordination failed for {ticker}: {error_msg}")
+                        self.logger.error(f"MoE Coordination failed for {ticker}. Response: {coordinator_response_dict}")
+
+                except Exception as coord_ex:
+                    self.logger.error(f"Exception during MoE Coordination for {ticker}: {coord_ex}", exc_info=True)
+                    system_status_messages.append(f"Exception during MoE Coordination: {str(coord_ex)}")
+            else:
+                self.logger.warning(f"Legendary Expert Coordinator not available or not enabled. Skipping MoE analysis for {ticker}.")
+                system_status_messages.append("Legendary Expert Coordinator not available. MoE analysis skipped.")
+
+            # TODO: Integrate outputs from self.atif_engine, self.news_intelligence, self.ai_predictions_manager
+            # These might run after or in parallel, or their functionality might be superseded by specific experts in MoE.
+            # For now, their outputs are not included in the final bundle directly from this MoE path.
+
             final_bundle = FinalAnalysisBundleV2_5(
                 processed_data_bundle=processed_bundle,
-                scored_signals_v2_5={},  # Empty for now
-                key_levels_data_v2_5=KeyLevelsDataV2_5(
-                    supports=[],
-                    resistances=[],
-                    pin_zones=[],
-                    vol_triggers=[],
-                    major_walls=[],
-                    timestamp=bundle_timestamp
-                ),
+                scored_signals_v2_5={},  # Placeholder - requires signal generation logic
+                key_levels_data_v2_5=key_levels_data,
                 bundle_timestamp=bundle_timestamp,
                 target_symbol=ticker,
-                system_status_messages=[
-                    f"Analysis completed successfully for {ticker}",
-                    f"Expert analyses: {len(expert_results)} completed"
-                ],
-                active_recommendations_v2_5=[],  # Empty for now
-                atif_recommendations_v2_5=None,  # Not implemented yet
-                news_intelligence_v2_5=None,  # Not implemented yet
-                ai_predictions_v2_5=None  # Not implemented yet
+                system_status_messages=system_status_messages,
+                active_recommendations_v2_5=active_recommendations,
+                # These are placeholders, actual integration of these EOTS engines needed if they are not part of HuiHui experts
+                atif_recommendations_v2_5=None,
+                news_intelligence_v2_5=None,
+                ai_predictions_v2_5=None
             )
             
             return final_bundle
             
         except Exception as e:
-            self.logger.error(f"Error in full analysis cycle: {str(e)}")
+            self.logger.error(f"Error in full analysis cycle for {ticker}: {str(e)}", exc_info=True)
             return self._create_error_bundle(ticker, str(e))
     
     def _create_error_bundle(self, ticker: str, error_message: str) -> FinalAnalysisBundleV2_5:
@@ -742,8 +798,11 @@ class ITSOrchestratorV2_5:
             self.logger.error(f"Failed to get processed data bundle for {ticker}: {e}")
             import traceback
             self.logger.error(f"Traceback: {traceback.format_exc()}")
+            # Ensure performance_metrics is initialized
+            if not hasattr(self, 'performance_metrics') or self.performance_metrics is None:
+                self.performance_metrics = {}
             self.performance_metrics["failed_analyses"] = self.performance_metrics.get("failed_analyses", 0) + 1
-            return None
+            return self._create_error_bundle(ticker, str(e))
     
     def _calculate_data_quality_score(self, data_bundle: ProcessedDataBundleV2_5) -> float:
         """Calculate data quality score for the analysis"""
