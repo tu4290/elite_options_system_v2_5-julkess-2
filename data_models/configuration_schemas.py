@@ -5,19 +5,70 @@ coefficients, and parameters for different analytical components.
 These models are primarily used by ConfigManagerV2_5 to validate and provide
 access to the system's configuration.
 """
-from pydantic import BaseModel, Field, FilePath
-from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field, FilePath, ConfigDict
+from typing import List, Dict, Any, Optional, Union
+from enum import Enum
+from datetime import datetime
 
 # --- TimeOfDayDefinitions moved to context_schemas.py as it's used by TickerContextAnalyzer ---
 # from .context_schemas import TimeOfDayDefinitions (if it were here)
 
-# --- Dashboard Specific Configuration Models ---
+# --- Moved from dashboard_schemas.py ---
+class ChartType(str, Enum):
+    """Supported chart types for the dashboard visualizations."""
+    LINE = "line"; BAR = "bar"; SCATTER = "scatter"; HEATMAP = "heatmap"; GAUGE = "gauge"
+    CANDLESTICK = "candlestick"; HISTOGRAM = "histogram"; PIE = "pie"; TABLE = "table"
+
+class ChartLayoutConfigV2_5(BaseModel):
+    """Unified chart layout configuration for consistent visualization across EOTS."""
+    title_text: str = Field(..., description="Chart title text")
+    chart_type: ChartType = Field(..., description="Type of chart to render")
+    height: int = Field(300, ge=100, le=1000, description="Chart height in pixels")
+    width: Union[int, str] = Field("100%", description="Chart width in pixels or percentage")
+    x_axis_title: str = Field("", description="X-axis title")
+    y_axis_title: str = Field("", description="Y-axis title")
+    show_legend: bool = Field(True, description="Whether to show the legend")
+    margin: Dict[str, int] = Field(
+        default_factory=lambda: {"t": 30, "b": 30, "l": 50, "r": 30},
+        description="Chart margins in pixels"
+    )
+    template: str = Field("plotly_white", description="Plotly template to use")
+    model_config = ConfigDict(extra='forbid')
+
+    def to_plotly_layout(self) -> Dict[str, Any]:
+        """Convert to Plotly layout dictionary."""
+        return {
+            "title": {"text": self.title_text},
+            "height": self.height,
+            "width": self.width if isinstance(self.width, int) else None,
+            "xaxis": {"title": self.x_axis_title},
+            "yaxis": {"title": self.y_axis_title},
+            "showlegend": self.show_legend,
+            "margin": self.margin,
+            "template": self.template
+        }
+
+class ControlPanelParametersV2_5(BaseModel):
+    """Control panel parameters with strict validation for dashboard controls."""
+    symbol: str = Field(..., description="Trading symbol to analyze (e.g., 'SPY', 'QQQ').")
+    time_frame: str = Field("1D", description="Time frame for analysis (e.g., '1D', '1H', '15m').")
+    start_date: Optional[datetime] = Field(None, description="Start date for historical data (UTC).")
+    end_date: Optional[datetime] = Field(None, description="End date for historical data (UTC).")
+    indicators: List[str] = Field(default_factory=list, description="Technical indicators to display (e.g., 'RSI', 'MACD').")
+    show_volume: bool = Field(True, description="Toggle volume data display on/off.")
+    show_grid: bool = Field(True, description="Toggle grid lines visibility.")
+    theme: str = Field("dark", description="UI theme preference ('dark', 'light', or 'system').")
+    refresh_interval: int = Field(60, ge=5, description="Auto-refresh interval in seconds (min 5s).")
+    layout_columns: int = Field(2, ge=1, le=4, description="Number of columns in dashboard layout (1-4).")
+    model_config = ConfigDict(extra='forbid')
+
+# --- Dashboard Specific Configuration Models (Original to this file) ---
 class DashboardModeSettings(BaseModel):
     """Defines settings for a single dashboard mode."""
     label: str = Field(..., description="Display label for the mode in UI selectors.")
     module_name: str = Field(..., description="Python module name (e.g., 'main_dashboard_display_v2_5') to import for this mode's layout and callbacks.")
     charts: List[str] = Field(default_factory=list, description="List of chart/component identifier names expected to be displayed in this mode.")
-    
+
     class Config:
         extra = 'forbid'
 
@@ -28,7 +79,7 @@ class MainDashboardDisplaySettings(BaseModel):
         "title": "Market Regime",
         "regime_colors": {"default": "secondary", "bullish": "success", "bearish": "danger", "neutral": "info", "unclear": "warning"}
     }, description="Configuration for the Market Regime indicator display.")
-    
+
     flow_gauge: Dict[str, Any] = Field(default_factory=lambda: {
         "height": 200, "indicator_font_size": 16, "number_font_size": 24, "axis_range": [-3, 3],
         "threshold_line_color": "white", "margin": {"t": 60, "b": 40, "l": 20, "r": 20},
@@ -38,7 +89,7 @@ class MainDashboardDisplaySettings(BaseModel):
             {"range": [2, 3], "color": "#2ca02c"}
         ]
     }, description="Configuration for flow gauge visualizations.")
-    
+
     gib_gauge: Dict[str, Any] = Field(default_factory=lambda: {
         "height": 180, "indicator_font_size": 14, "number_font_size": 20, "axis_range": [-1, 1],
         "dollar_axis_range": [-1000000, 1000000], "threshold_line_color": "white",
@@ -54,20 +105,20 @@ class MainDashboardDisplaySettings(BaseModel):
             {"range": [500000, 1000000], "color": "#2ca02c"}
         ]
     }, description="Configuration for GIB gauge visualizations.")
-    
+
     mini_heatmap: Dict[str, Any] = Field(default_factory=lambda: {
         "height": 150, "colorscale": "RdYlGn", "margin": {"t": 50, "b": 30, "l": 40, "r": 40}
     }, description="Default settings for mini-heatmap components.")
-    
+
     recommendations_table: Dict[str, Any] = Field(default_factory=lambda: {
         "title": "ATIF Recommendations", "max_rationale_length": 50, "page_size": 5,
         "style_cell": {"textAlign": "left", "padding": "5px", "minWidth": "80px", "width": "auto", "maxWidth": "200px"},
         "style_header": {"backgroundColor": "rgb(30, 30, 30)", "fontWeight": "bold", "color": "white"},
         "style_data": {"backgroundColor": "rgb(50, 50, 50)", "color": "white"}
     }, description="Configuration for the ATIF recommendations table.")
-    
+
     ticker_context: Dict[str, Any] = Field(default_factory=lambda: {"title": "Ticker Context"}, description="Settings for ticker context display area.")
-    
+
     class Config:
         extra = 'forbid'
 
@@ -82,9 +133,8 @@ class DashboardModeCollection(BaseModel):
         label="Flow Analysis", module_name="flow_mode_display_v2_5",
         charts=["net_value_heatmap_viz", "net_cust_delta_flow_viz", "net_cust_gamma_flow_viz", "net_cust_vega_flow_viz"]
     ))
-    # ... other default modes from original schema (structure, timedecay, advanced)
     structure: DashboardModeSettings = Field(default_factory=lambda: DashboardModeSettings(
-        label="Structure & Positioning", module_name="structure_mode_display_v2_5", 
+        label="Structure & Positioning", module_name="structure_mode_display_v2_5",
         charts=["mspi_components", "sai_ssi_displays"]
     ))
     timedecay: DashboardModeSettings = Field(default_factory=lambda: DashboardModeSettings(
@@ -95,7 +145,7 @@ class DashboardModeCollection(BaseModel):
         label="Advanced Flow Metrics", module_name="advanced_flow_mode_display_v2_5",
         charts=["vapi_gauges", "dwfd_gauges", "tw_laf_gauges"]
     ))
-    
+
     class Config:
         extra = 'forbid'
 
@@ -110,6 +160,10 @@ class VisualizationSettings(BaseModel):
     }, description="Core Dash server and display settings.")
     modes_detail_config: DashboardModeCollection = Field(default_factory=DashboardModeCollection, description="Detailed configuration for each dashboard mode.")
     main_dashboard_settings: MainDashboardDisplaySettings = Field(default_factory=MainDashboardDisplaySettings, description="Specific settings for components on the main dashboard.")
+    # New fields for consolidation
+    default_mode_label: Optional[str] = Field(None, description="Default dashboard mode label (from DashboardModeSettings labels) to load on startup.")
+    default_chart_layouts: Dict[str, ChartLayoutConfigV2_5] = Field(default_factory=dict, description="Default layout configurations for specific chart IDs.")
+    default_control_panel_settings: Optional[ControlPanelParametersV2_5] = Field(None, description="Default parameters for the dashboard control panel.")
 
     class Config:
         extra = 'forbid'
@@ -160,7 +214,6 @@ class MarketRegimeEngineSettings(BaseModel):
     default_regime: str = Field(default="REGIME_UNCLEAR_OR_TRANSITIONING", description="Default market regime if no other rules match.")
     regime_evaluation_order: List[str] = Field(default_factory=list, description="Order in which to evaluate market regime rules (most specific first).")
     regime_rules: Dict[str, Dict[str, Any]] = Field(default_factory=dict, description="Dictionary of rules defining conditions for each market regime.")
-    # TimeOfDayDefinitions is now in context_schemas.py and imported there if needed by MRE logic.
     class Config: extra = 'forbid'
 
 
@@ -170,7 +223,7 @@ class SystemSettings(BaseModel):
     project_root_override: Optional[str] = Field(None, description="Absolute path to override auto-detected project root. Use null for auto-detection.")
     logging_level: str = Field("INFO", description="Minimum logging level (e.g., DEBUG, INFO, WARNING, ERROR).")
     log_to_file: bool = Field(True, description="If true, logs will be written to the file specified in log_file_path.")
-    log_file_path: str = Field("logs/eots_v2_5.log", description="Relative path from project root for the log file.") # pattern="\\.log$" removed for simplicity
+    log_file_path: str = Field("logs/eots_v2_5.log", description="Relative path from project root for the log file.")
     max_log_file_size_bytes: int = Field(10485760, ge=1024, description="Maximum size of a single log file in bytes before rotation.")
     backup_log_count: int = Field(5, ge=0, description="Number of old log files to keep after rotation.")
     live_mode: bool = Field(True, description="If true, system attempts to use live data sources; affects error handling.")
@@ -186,7 +239,6 @@ class ConvexValueAuthSettings(BaseModel):
     """Authentication settings for ConvexValue API."""
     use_env_variables: bool = Field(True, description="If true, attempts to load credentials from environment variables first.")
     auth_method: str = Field("email_password", description="Authentication method for ConvexValue API (e.g., 'email_password', 'api_key').")
-    # Specific credential fields would be here if not using env variables, e.g., email: Optional[str], password: Optional[SecretStr]
     class Config: extra = 'forbid'
 
 class DataFetcherSettings(BaseModel):
@@ -196,11 +248,10 @@ class DataFetcherSettings(BaseModel):
     tradier_account_id: str = Field(..., description="Account ID for Tradier (sensitive, ideally from env var).")
     max_retries: int = Field(3, ge=0, description="Maximum number of retry attempts for a failing API call.")
     retry_delay_seconds: float = Field(5.0, ge=0, description="Base delay in seconds between API call retries.")
-    # Added fields based on ValidationError
     api_keys: Optional[Dict[str, str]] = Field(default_factory=dict, description="Optional dictionary for API keys if not using direct fields.")
-    retry_attempts: Optional[int] = Field(3, description="Number of retry attempts for API calls.") # Defaulted from error
-    retry_delay: Optional[float] = Field(5.0, description="Delay in seconds between retries.") # Defaulted from error
-    timeout: Optional[float] = Field(30.0, description="Timeout in seconds for API requests.") # Defaulted from error
+    retry_attempts: Optional[int] = Field(3, description="Number of retry attempts for API calls.")
+    retry_delay: Optional[float] = Field(5.0, description="Delay in seconds between retries.")
+    timeout: Optional[float] = Field(30.0, description="Timeout in seconds for API requests.")
     class Config: extra = 'forbid'
 
 class DataManagementSettings(BaseModel):
@@ -208,10 +259,9 @@ class DataManagementSettings(BaseModel):
     data_cache_dir: str = Field("data_cache_v2_5", description="Root directory for caching temporary data.")
     historical_data_store_dir: str = Field("data_cache_v2_5/historical_data_store", description="Directory for persistent historical market and metric data.")
     performance_data_store_dir: str = Field("data_cache_v2_5/performance_data_store", description="Directory for storing trade recommendation performance data.")
-    # Added fields based on ValidationError
-    cache_directory: Optional[str] = Field("data_cache_v2_5", description="Cache directory path.") # Defaulted from error
-    data_store_directory: Optional[str] = Field("data_cache_v2_5/data_store", description="Data store directory path.") # Defaulted from error
-    cache_expiry_hours: Optional[float] = Field(24.0, description="Cache expiry in hours.") # Defaulted from error
+    cache_directory: Optional[str] = Field("data_cache_v2_5", description="Cache directory path.")
+    data_store_directory: Optional[str] = Field("data_cache_v2_5/data_store", description="Data store directory path.")
+    cache_expiry_hours: Optional[float] = Field(24.0, description="Cache expiry in hours.")
     class Config: extra = 'forbid'
 
 
@@ -221,9 +271,7 @@ class EnhancedFlowMetricSettings(BaseModel):
     vapi_fa_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters specific to VAPI-FA calculation (e.g., primary_flow_interval, iv_source_key).")
     dwfd_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters specific to DWFD calculation (e.g., flow_interval, fvd_weight_factor).")
     tw_laf_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters specific to TW-LAF calculation (e.g., time_weights_for_intervals, spread_calculation_params).")
-    # Common params (can be overridden within specific metric_params if needed)
     z_score_window: int = Field(20, ge=5, le=200, description="Default window size for Z-score normalization of enhanced flow metrics.")
-    # Added fields based on ValidationError
     acceleration_calculation_intervals: Optional[List[str]] = Field(default_factory=list, description="Intervals for flow acceleration calculation.")
     time_intervals: Optional[List[int]] = Field(default_factory=list, description="Time intervals for flow metrics.")
     liquidity_weight: Optional[float] = Field(None, description="Weight for liquidity adjustment.")
@@ -231,11 +279,8 @@ class EnhancedFlowMetricSettings(BaseModel):
     lookback_periods: Optional[List[int]] = Field(default_factory=list, description="Lookback periods for flow calculations.")
     class Config: extra = 'forbid'
 
-class StrategySettings(BaseModel): # General strategy settings, can be expanded
+class StrategySettings(BaseModel):
     """High-level strategy settings, often used for ATIF and TPO guidance."""
-    # Example: thresholds for various signals or conviction modifiers
-    # This model uses 'allow' as it's a common place for various ad-hoc strategy params.
-    # Better practice would be to define specific sub-models for different strategy aspects.
     class Config: extra = 'allow'
 
 class LearningParams(BaseModel):
@@ -249,75 +294,28 @@ class LearningParams(BaseModel):
 class AdaptiveTradeIdeaFrameworkSettings(BaseModel):
     """Comprehensive settings for the Adaptive Trade Idea Framework (ATIF)."""
     min_conviction_to_initiate_trade: float = Field(2.5, ge=0, le=5, description="Minimum ATIF conviction score (0-5 scale) to generate a new trade recommendation.")
-    signal_integration_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters for how ATIF integrates and weights raw signals (e.g., base_signal_weights, performance_weighting_sensitivity).")
+    signal_integration_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters for how ATIF integrates and weights raw signals.")
     regime_context_weight_multipliers: Dict[str, float] = Field(default_factory=dict, description="Multipliers applied to signal weights based on current market regime.")
     conviction_mapping_params: Dict[str, Any] = Field(default_factory=dict, description="Rules and thresholds for mapping ATIF's internal assessment to a final conviction score.")
-    strategy_specificity_rules: List[Dict[str, Any]] = Field(default_factory=list, description="Rule set mapping [Assessment + Conviction + Regime + Context + IV] to specific option strategies, DTEs, and deltas.")
-    intelligent_recommendation_management_rules: Dict[str, Any] = Field(default_factory=dict, description="Rules for adaptive exits, parameter adjustments, and partial position management.")
+    strategy_specificity_rules: List[Dict[str, Any]] = Field(default_factory=list, description="Rule set mapping conditions to specific option strategies.")
+    intelligent_recommendation_management_rules: Dict[str, Any] = Field(default_factory=dict, description="Rules for adaptive exits and parameter adjustments.")
     learning_params: LearningParams = Field(default_factory=LearningParams, description="Parameters for ATIF's learning loop.")
-    class Config: extra = 'forbid'
-
-class TickerContextAnalyzerSettings(BaseModel):
-    """Settings for the TickerContextAnalyzerV2_5."""
-    # General settings
-    lookback_days: int = Field(252, description="Default lookback days for historical analysis (e.g., for IV rank).") # Approx 1 year
-    correlation_window: int = Field(60, description="Window for calculating correlations if used.")
-    volatility_windows: List[int] = Field(default_factory=lambda: [1, 5, 20], description="Windows for short, medium, long term volatility analysis.")
-    # Example specific settings for a ticker or default profile
-    SPY: Dict[str, Any] = Field(default_factory=dict, description="Specific context analysis parameters for SPY.")
-    DEFAULT_TICKER_PROFILE: Dict[str, Any] = Field(default_factory=dict, description="Default parameters for tickers not explicitly defined.")
-    # Parameters for fetching external data if used (e.g., earnings calendar)
-    # use_yahoo_finance: bool = False
-    # yahoo_finance_rate_limit_seconds: float = 2.0
-    # Added fields based on ValidationError
-    volume_threshold: Optional[int] = Field(None, description="Volume threshold for ticker context analysis.")
-    use_yahoo_finance: Optional[bool] = Field(False, description="Flag to use Yahoo Finance for data.")
-    yahoo_finance_rate_limit_seconds: Optional[float] = Field(2.0, description="Rate limit in seconds for Yahoo Finance API calls.")
-    class Config: extra = 'forbid'
-
-class KeyLevelIdentifierSettings(BaseModel):
-    """Settings for the KeyLevelIdentifierV2_5."""
-    lookback_periods: int = Field(20, description="Lookback period for identifying significant prior S/R from A-MSPI history.")
-    min_touches: int = Field(2, description="Minimum times a historical level must have been touched to be considered significant.")
-    level_tolerance: float = Field(0.005, ge=0, le=0.1, description="Percentage tolerance for clustering nearby levels (e.g., 0.5% = 0.005).")
-    # Thresholds for identifying levels from various sources
-    nvp_support_quantile: float = Field(0.95, ge=0, le=1, description="Quantile for identifying strong NVP support levels.")
-    nvp_resistance_quantile: float = Field(0.95, ge=0, le=1, description="Quantile for identifying strong NVP resistance levels.")
-    # Other source-specific thresholds (e.g., for SGDHP, UGCH scores) would be defined here.
-    # Added fields based on ValidationError
-    volume_threshold: Optional[float] = Field(None, description="Volume threshold for key level identification.")
-    oi_threshold: Optional[int] = Field(None, description="Open interest threshold for key level identification.")
-    gamma_threshold: Optional[float] = Field(None, description="Gamma threshold for key level identification.")
-    class Config: extra = 'forbid'
-
-class HeatmapGenerationSettings(BaseModel):
-    """Parameters for generating data for Enhanced Heatmaps."""
-    ugch_params: Dict[str, Any] = Field(default_factory=lambda: {"greek_weights": {"norm_DXOI":1.0, "norm_GXOI":1.0}}, description="Parameters for UGCH data generation, e.g., weights for each Greek.")
-    sgdhp_params: Dict[str, Any] = Field(default_factory=lambda: {"proximity_sensitivity_param": 0.02}, description="Parameters for SGDHP data generation, e.g., price proximity sensitivity.")
-    ivsdh_params: Dict[str, Any] = Field(default_factory=lambda: {"time_decay_sensitivity_factor": 0.1}, description="Parameters for IVSDH data generation.")
-    # Added field based on ValidationError
-    flow_normalization_window: Optional[int] = Field(None, description="Window for flow normalization in heatmap generation.")
     class Config: extra = 'forbid'
 
 class PerformanceTrackerSettingsV2_5(BaseModel):
     """Settings for the PerformanceTrackerV2_5 module."""
     performance_data_directory: str = Field("data_cache_v2_5/performance_data_store", description="Directory for storing performance tracking data files.")
     historical_window_days: int = Field(365, ge=1, description="Number of days of performance data to retain and consider for analysis.")
-    weight_smoothing_factor: float = Field(0.1, ge=0, le=1, description="Smoothing factor for performance-based weight adjustments by ATIF (0=no new learning, 1=full new learning).")
-    min_sample_size_for_stats: int = Field(10, ge=1, description="Minimum number of trade samples required for calculating reliable performance statistics for a setup/signal.")
-    # confidence_threshold: float = Field(0.75, ge=0, le=1, description="Confidence threshold for performance-based adjustments - not directly used by ATIF learning_rate, but for user interpretation.")
-    # update_interval_seconds: int = Field(3600, ge=1, description="Interval for batch updates or re-analysis of performance data (if applicable).")
+    weight_smoothing_factor: float = Field(0.1, ge=0, le=1, description="Smoothing factor for performance-based weight adjustments by ATIF.")
+    min_sample_size_for_stats: int = Field(10, ge=1, description="Minimum number of trade samples required for reliable performance statistics.")
     tracking_enabled: bool = Field(True, description="Master toggle for enabling/disabling performance tracking.")
     metrics_to_track_display: List[str] = Field(default_factory=lambda: ["returns", "sharpe_ratio", "max_drawdown", "win_rate"], description="List of performance metrics to display on dashboard.")
-    # reporting_frequency: str = Field("daily", description="Frequency of generating performance reports (if applicable).")
-    # benchmark_symbol: str = Field("SPY", description="Benchmark symbol for relative performance comparison.")
-    # Added fields based on ValidationError
     min_sample_size: Optional[int] = Field(10, description="Minimum sample size for performance statistics.")
     confidence_threshold: Optional[float] = Field(0.75, description="Confidence threshold for performance adjustments.")
     update_interval_seconds: Optional[int] = Field(3600, description="Interval for performance data updates.")
     class Config: extra = 'forbid'
 
-class AdaptiveMetricParameters(BaseModel): # Top-level container for all adaptive metric specific settings in config
+class AdaptiveMetricParameters(BaseModel):
     """Container for settings related to all Tier 2 Adaptive Metrics."""
     a_dag_settings: Dict[str, Any] = Field(default_factory=dict, description="Settings for Adaptive Delta Adjusted Gamma Exposure (A-DAG).")
     e_sdag_settings: Dict[str, Any] = Field(default_factory=dict, description="Settings for Enhanced Skew and Delta Adjusted Gamma Exposure (E-SDAG) methodologies.")
@@ -328,14 +326,11 @@ class AdaptiveMetricParameters(BaseModel): # Top-level container for all adaptiv
 
 class TickerContextAnalyzerSettings(BaseModel):
     """Settings for the TickerContextAnalyzerV2_5."""
-    # General settings
-    lookback_days: int = Field(252, description="Default lookback days for historical analysis (e.g., for IV rank).") # Approx 1 year
+    lookback_days: int = Field(252, description="Default lookback days for historical analysis (e.g., for IV rank).")
     correlation_window: int = Field(60, description="Window for calculating correlations if used.")
     volatility_windows: List[int] = Field(default_factory=lambda: [1, 5, 20], description="Windows for short, medium, long term volatility analysis.")
-    # Example specific settings for a ticker or default profile
     SPY: Dict[str, Any] = Field(default_factory=dict, description="Specific context analysis parameters for SPY.")
     DEFAULT_TICKER_PROFILE: Dict[str, Any] = Field(default_factory=dict, description="Default parameters for tickers not explicitly defined.")
-    # Added fields based on ValidationError
     volume_threshold: Optional[int] = Field(1000000, description="Volume threshold for ticker context analysis.")
     use_yahoo_finance: Optional[bool] = Field(False, description="Flag to use Yahoo Finance for data.")
     yahoo_finance_rate_limit_seconds: Optional[float] = Field(2.0, description="Rate limit in seconds for Yahoo Finance API calls.")
@@ -348,7 +343,6 @@ class KeyLevelIdentifierSettings(BaseModel):
     level_tolerance: float = Field(0.005, ge=0, le=0.1, description="Percentage tolerance for clustering nearby levels (e.g., 0.5% = 0.005).")
     nvp_support_quantile: float = Field(0.95, ge=0, le=1, description="Quantile for identifying strong NVP support levels.")
     nvp_resistance_quantile: float = Field(0.95, ge=0, le=1, description="Quantile for identifying strong NVP resistance levels.")
-    # Added fields based on ValidationError
     volume_threshold: Optional[float] = Field(1.5, description="Volume threshold for key level identification.")
     oi_threshold: Optional[int] = Field(1000, description="Open interest threshold for key level identification.")
     gamma_threshold: Optional[float] = Field(0.1, description="Gamma threshold for key level identification.")
@@ -356,10 +350,9 @@ class KeyLevelIdentifierSettings(BaseModel):
 
 class HeatmapGenerationSettings(BaseModel):
     """Parameters for generating data for Enhanced Heatmaps."""
-    ugch_params: Dict[str, Any] = Field(default_factory=lambda: {"greek_weights": {"norm_DXOI":1.0, "norm_GXOI":1.0}}, description="Parameters for UGCH data generation, e.g., weights for each Greek.")
-    sgdhp_params: Dict[str, Any] = Field(default_factory=lambda: {"proximity_sensitivity_param": 0.02}, description="Parameters for SGDHP data generation, e.g., price proximity sensitivity.")
+    ugch_params: Dict[str, Any] = Field(default_factory=lambda: {"greek_weights": {"norm_DXOI":1.0, "norm_GXOI":1.0}}, description="Parameters for UGCH data generation.")
+    sgdhp_params: Dict[str, Any] = Field(default_factory=lambda: {"proximity_sensitivity_param": 0.02}, description="Parameters for SGDHP data generation.")
     ivsdh_params: Dict[str, Any] = Field(default_factory=lambda: {"time_decay_sensitivity_factor": 0.1}, description="Parameters for IVSDH data generation.")
-    # Added field based on ValidationError
     flow_normalization_window: Optional[int] = Field(100, description="Window for flow normalization in heatmap generation.")
     class Config: extra = 'forbid'
 
@@ -377,19 +370,16 @@ class SymbolDefaultOverridesStrategySettings(BaseModel):
 class SymbolDefaultOverrides(BaseModel):
     """Container for default settings that can be overridden by specific symbols."""
     strategy_settings: Optional[SymbolDefaultOverridesStrategySettings] = Field(default_factory=SymbolDefaultOverridesStrategySettings)
-    # Can add other overridable sections here, e.g., market_regime_engine_settings
-    class Config: extra = 'allow' # Allow adding other top-level setting blocks for DEFAULT
+    class Config: extra = 'allow'
 
 class SymbolSpecificOverrides(BaseModel):
     """
     Main container for symbol-specific configuration overrides.
     Keys are ticker symbols (e.g., "SPY", "AAPL") or "DEFAULT".
-    Values are dictionaries structured like parts of the main config.
     """
-    DEFAULT: Optional[SymbolDefaultOverrides] = Field(default_factory=SymbolDefaultOverrides, description="Default override profile applied if no ticker-specific override exists.")
+    DEFAULT: Optional[SymbolDefaultOverrides] = Field(default_factory=SymbolDefaultOverrides, description="Default override profile.")
     SPY: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Specific overrides for SPY.")
-    # Add other commonly traded symbols as needed, e.g., AAPL: Optional[Dict[str, Any]]
-    class Config: extra = 'allow' # Allows adding new ticker symbols as keys
+    class Config: extra = 'allow'
 
 
 # --- Database and Collector Settings (if used) ---
@@ -399,7 +389,7 @@ class DatabaseSettings(BaseModel):
     port: int = Field(5432, description="Database port number.")
     database: str = Field(..., description="Database name.")
     user: str = Field(..., description="Database username.")
-    password: str = Field(..., description="Database password (sensitive).") # Consider pydantic.SecretStr
+    password: str = Field(..., description="Database password (sensitive).")
     min_connections: int = Field(1, ge=0, description="Minimum number of connections in pool.")
     max_connections: int = Field(10, ge=1, description="Maximum number of connections in pool.")
     class Config: extra = 'forbid'
@@ -413,9 +403,8 @@ class IntradayCollectorSettings(BaseModel):
     market_open_time: str = Field("09:30:00", description="Market open time (HH:MM:SS) for collector activity.")
     market_close_time: str = Field("16:00:00", description="Market close time (HH:MM:SS) for collector activity.")
     reset_cache_at_eod: bool = Field(True, description="Whether to wipe intraday cache at end of day.")
-    # Added fields based on ValidationError
     metrics: Optional[List[str]] = Field(default_factory=list, description="List of metrics for the intraday collector.")
-    reset_at_eod: Optional[bool] = Field(True, description="Whether to reset cache at EOD for intraday collector.") # Field already existed, ensuring Optional and default
+    reset_at_eod: Optional[bool] = Field(True, description="Whether to reset cache at EOD for intraday collector.")
     class Config: extra = 'forbid'
 
 
@@ -423,41 +412,36 @@ class IntradayCollectorSettings(BaseModel):
 class EOTSConfigV2_5(BaseModel):
     """
     The root model for the EOTS v2.5 system configuration (config_v2_5.json).
-    It defines all valid parameters, their types, default values, and descriptions,
-    ensuring configuration integrity and providing a structured way to access settings.
     """
     system_settings: SystemSettings = Field(default_factory=SystemSettings)
     data_fetcher_settings: DataFetcherSettings
     data_management_settings: DataManagementSettings = Field(default_factory=DataManagementSettings)
     database_settings: Optional[DatabaseSettings] = Field(None, description="Optional database connection settings.")
-    
+
     data_processor_settings: DataProcessorSettings = Field(default_factory=DataProcessorSettings)
     adaptive_metric_parameters: AdaptiveMetricParameters = Field(default_factory=AdaptiveMetricParameters)
     enhanced_flow_metric_settings: EnhancedFlowMetricSettings = Field(default_factory=EnhancedFlowMetricSettings)
     key_level_identifier_settings: KeyLevelIdentifierSettings = Field(default_factory=KeyLevelIdentifierSettings)
     heatmap_generation_settings: HeatmapGenerationSettings = Field(default_factory=HeatmapGenerationSettings)
     market_regime_engine_settings: MarketRegimeEngineSettings = Field(default_factory=MarketRegimeEngineSettings)
-    
-    # Strategy and ATIF settings are often complex and interlinked
-    strategy_settings: StrategySettings = Field(default_factory=StrategySettings, description="General strategy parameters, often used by ATIF/TPO.")
+
+    strategy_settings: StrategySettings = Field(default_factory=StrategySettings, description="General strategy parameters.")
     adaptive_trade_idea_framework_settings: AdaptiveTradeIdeaFrameworkSettings
-    
+
     ticker_context_analyzer_settings: TickerContextAnalyzerSettings = Field(default_factory=TickerContextAnalyzerSettings)
     performance_tracker_settings_v2_5: PerformanceTrackerSettingsV2_5 = Field(default_factory=PerformanceTrackerSettingsV2_5)
-    
+
     visualization_settings: VisualizationSettings = Field(default_factory=VisualizationSettings)
     symbol_specific_overrides: SymbolSpecificOverrides = Field(default_factory=SymbolSpecificOverrides)
-    
-    # TimeOfDayDefinitions is now in context_schemas.py and typically loaded into MarketRegimeEngine or TickerContextAnalyzer
-    # For direct config access if needed by other general utils:
-    time_of_day_definitions: Optional[Dict[str,str]] = Field(None, description="Optional: Can load TimeOfDayDefinitions directly here if not handled by MRE/TCA init. Otherwise, they use context_schemas.TimeOfDayDefinitions.")
 
-    intraday_collector_settings: Optional[IntradayCollectorSettings] = Field(None, description="Optional settings for a separate intraday metrics collector service.")
+    time_of_day_definitions: Optional[Dict[str,str]] = Field(None, description="Optional: Can load TimeOfDayDefinitions directly here.")
+
+    intraday_collector_settings: Optional[IntradayCollectorSettings] = Field(None, description="Optional settings for intraday metrics collector.")
 
     class Config:
         json_schema_extra = {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "title": "EOTS_V2_5_Config_Schema_Root",
-            "description": "Root schema for EOTS v2.5 configuration (config_v2_5.json). Defines all valid parameters, types, defaults, and descriptions for system operation."
+            "description": "Root schema for EOTS v2.5 configuration (config_v2_5.json)."
         }
-        extra = 'forbid' # Enforce strict configuration structure at the root level
+        extra = 'forbid'
